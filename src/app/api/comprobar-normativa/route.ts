@@ -10,7 +10,10 @@ import { detectarNormas } from "@/nucleo/normas";
  * automático detrás.
  */
 
-export const maxDuration = 600;
+// 300 s es el máximo que admite el plan gratuito de Vercel. Buscar doce normas
+// en fuentes oficiales cabe de sobra, y si algún día no cupiera habría que
+// partir la comprobación en tandas, no subir este número.
+export const maxDuration = 300;
 
 const MAXIMO_NORMAS = 12;
 

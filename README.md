@@ -139,8 +139,9 @@ se puede probar con `npm test` y no cambia al tocar la nube.
    nueva a `main` se aplica sola (`.github/workflows/migraciones.yml`). Si prefieres no dejar el
    token en GitHub, borra ese archivo y usa `npm run migrar`.
 
-**Cuidado con el límite de tiempo.** En el plan gratuito de Vercel una petición no puede durar más
-de 60 segundos. Por eso el trabajo va troceado: los apuntes se leen de tres en tres, el banco de
-preguntas se crea en dos llamadas y cada parte del simulacro se corrige por separado, transcribiendo
-las fotos de dos en dos. Si algún día se amplía lo que hace una llamada, hay que respetar ese límite
-o el plan de Vercel tiene que subir.
+**Cuidado con el límite de tiempo.** En el plan gratuito de Vercel ninguna función puede declarar un
+`maxDuration` mayor de 300 segundos: si se pasa, el despliegue falla entero con `invalid_max_duration`.
+Además, el trabajo va troceado a propósito —los apuntes se leen de tres en tres, el banco se crea en
+dos llamadas y cada parte del simulacro se corrige por separado, con las fotos transcritas de dos en
+dos—, porque una petición de varios minutos es frágil y deja a quien la usa mirando un botón
+bloqueado. Si algo deja de caber, se trocea más; no se sube el número.
