@@ -21,6 +21,7 @@ Otros comandos:
 ```bash
 npm test            # 60 pruebas de la lógica: repasos, racha, fallos, sorteo, normas, rúbricas
 npm run build       # compilación de producción (comprueba tipos)
+npm run migrar      # aplica a Supabase las migraciones que falten (npm run migrar -- --ver para mirar)
 npm run probar:nube # prueba la sincronización contra la base de datos real
 npx tsx scripts/probar-lectura.mts   # prueba la lectura de apuntes contra la API (unos céntimos)
 ```
@@ -46,9 +47,13 @@ npx tsx scripts/probar-lectura.mts   # prueba la lectura de apuntes contra la AP
    (`sb_publishable_…`; en proyectos antiguos se llamaba `anon public`). La **secret key** no hace
    falta para la app y no debe acabar en el navegador.
 3. Copiar `.env.example` como `.env.local` y pegar esos dos valores, más la clave de Anthropic.
-4. En **SQL Editor**, pegar y ejecutar `supabase/migrations/PENDIENTES.sql`, que junta las
-   migraciones de las fases 2 a 5 en orden. Si el proyecto es nuevo, antes hay que ejecutar
-   `0001_fase1.sql`. Todas se pueden volver a ejecutar sin romper nada.
+4. Aplicar las migraciones. Dos formas:
+   - **Por comando** (recomendado): sacar un token en
+     [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens), pegarlo
+     en `.env.local` como `SUPABASE_ACCESS_TOKEN` y ejecutar `npm run migrar`. Lleva la cuenta de
+     lo aplicado en una tabla `migraciones`, así que se puede repetir sin miedo.
+   - **A mano**: pegar `supabase/migrations/PENDIENTES.sql` en el **SQL Editor** de Supabase. Si el
+     proyecto es nuevo, antes `0001_fase1.sql`.
 5. En **Authentication → URL Configuration**, poner `http://localhost:3000` como *Site URL* y añadir
    `http://localhost:3000/**` a *Redirect URLs*.
 6. Reiniciar `npm run dev` y entrar en `/entrar`.
@@ -127,7 +132,12 @@ se puede probar con `npm test` y no cambia al tocar la nube.
 3. En Supabase, **Authentication → URL Configuration**, añadir la URL de Vercel como *Site URL* y
    `https://<tu-dominio>.vercel.app/**` a *Redirect URLs*, o el enlace del correo no volverá a la app.
 4. En Supabase, **Authentication → Sign In / Providers**, desactivar el registro de nuevos usuarios
-   una vez hayan entrado las personas que la van a usar.
+   una vez hayan entrado las personas que la van a usar. Si quieres entrar con Google, actívalo ahí
+   mismo antes.
+5. Opcional: en GitHub, **Settings → Secrets and variables → Actions**, añadir
+   `SUPABASE_ACCESS_TOKEN` y `NEXT_PUBLIC_SUPABASE_URL`. Con eso, cada vez que llegue una migración
+   nueva a `main` se aplica sola (`.github/workflows/migraciones.yml`). Si prefieres no dejar el
+   token en GitHub, borra ese archivo y usa `npm run migrar`.
 
 **Cuidado con el límite de tiempo.** En el plan gratuito de Vercel una petición no puede durar más
 de 60 segundos. Por eso el trabajo va troceado: los apuntes se leen de tres en tres, el banco de

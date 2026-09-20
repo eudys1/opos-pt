@@ -1,0 +1,33 @@
+name: Migraciones
+
+# Aplica a Supabase las migraciones nuevas en cuanto llegan a main.
+# Necesita dos secretos del repositorio (Settings → Secrets and variables →
+# Actions): SUPABASE_ACCESS_TOKEN y NEXT_PUBLIC_SUPABASE_URL.
+# Si prefieres no dejar el token en GitHub, borra este archivo y aplica las
+# migraciones a mano con `npm run migrar`.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+  workflow_dispatch:
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Aplicar migraciones pendientes
+        run: npx tsx scripts/migrar.mts
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "probar:nube": "tsx scripts/probar-sincronizacion.mts"
+    "probar:nube": "tsx scripts/probar-sincronizacion.mts",
+    "migrar": "tsx scripts/migrar.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
