@@ -40,6 +40,8 @@ export type EstadoNube =
 
 type Valor = {
   usuario: User | null;
+  /** true mientras aún no se sabe si hay sesión: evita enseñar la puerta y luego la app. */
+  comprobando: boolean;
   estadoNube: EstadoNube;
   mensaje: string;
   salir: () => Promise<void>;
@@ -48,6 +50,7 @@ type Valor = {
 
 const Contexto = createContext<Valor>({
   usuario: null,
+  comprobando: true,
   estadoNube: "sin-nube",
   mensaje: "",
   salir: async () => {},
@@ -57,6 +60,7 @@ const Contexto = createContext<Valor>({
 export function ProveedorSesion({ children }: { children: ReactNode }) {
   const cliente = useMemo(() => (hayNube() ? clienteNavegador() : null), []);
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [comprobando, setComprobando] = useState(hayNube());
   const [estadoNube, setEstadoNube] = useState<EstadoNube>(hayNube() ? "sin-sesion" : "sin-nube");
   const [mensaje, setMensaje] = useState("");
 
@@ -72,11 +76,14 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
     let vivo = true;
 
     cliente.auth.getUser().then(({ data }) => {
-      if (vivo) setUsuario(data.user ?? null);
+      if (!vivo) return;
+      setUsuario(data.user ?? null);
+      setComprobando(false);
     });
 
     const { data } = cliente.auth.onAuthStateChange((_evento, sesion) => {
       setUsuario(sesion?.user ?? null);
+      setComprobando(false);
       if (!sesion?.user) sincronizado.current = false;
     });
 
@@ -163,8 +170,8 @@ export function ProveedorSesion({ children }: { children: ReactNode }) {
   }, [cliente]);
 
   const valor = useMemo(
-    () => ({ usuario, estadoNube, mensaje, salir, cliente }),
-    [usuario, estadoNube, mensaje, salir, cliente],
+    () => ({ usuario, comprobando, estadoNube, mensaje, salir, cliente }),
+    [usuario, comprobando, estadoNube, mensaje, salir, cliente],
   );
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;

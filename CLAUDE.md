@@ -40,7 +40,14 @@ npx eslint src --max-warnings=0
    no se pueden comprobar contra los apuntes. No quitar ese filtro.
 6. **Las notas se recalculan en local** con `notaPonderada`, no se usa la media que devuelva el modelo.
 7. **La hora de inicio de un simulacro la pone el servidor.** Nunca calcular el reloj desde el cliente.
-8. Nada de datos inventados en la interfaz: si no se sabe, se dice.
+8. **El cuaderno solo se abre con cuenta.** `Puerta` (src/components/puerta.tsx) envuelve todo
+   `(app)/`. El almacén local sigue existiendo como copia de trabajo y caché sin conexión, pero
+   ya no es un modo de uso: sin sesión no se entra.
+9. **En `/entrar` no hay "crear cuenta".** Google o correo, nada más: el enlace al correo crea la
+   cuenta la primera vez. La contraseña es opcional y se pone desde dentro (`estado-cuenta.tsx`);
+   en la pantalla de entrar solo sirve para entrar, nunca para registrarse. No volver a meter ahí
+   pestañas, modos ni un segundo formulario.
+10. Nada de datos inventados en la interfaz: si no se sabe, se dice.
 
 ## Sistema de diseño "Cuaderno"
 

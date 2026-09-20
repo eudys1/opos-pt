@@ -12,9 +12,10 @@ npm install
 npm run dev
 ```
 
-La app queda en http://localhost:3000. Sin ninguna clave funciona el registro de estudio, el
-planificador y el progreso, guardando en este navegador. Con las claves de Supabase y Anthropic se
-desbloquean la cuenta, la lectura de apuntes, las preguntas, los supuestos y los simulacros.
+La app queda en http://localhost:3000. **Hace falta cuenta para entrar**, así que lo primero es
+configurar Supabase (más abajo); la clave de Anthropic desbloquea además la lectura de apuntes, las
+preguntas, los supuestos y las correcciones. El navegador guarda una copia de trabajo para ir rápido
+y aguantar sin conexión, pero lo que manda es la cuenta.
 
 Otros comandos:
 
@@ -57,6 +58,36 @@ npx tsx scripts/probar-lectura.mts   # prueba la lectura de apuntes contra la AP
 5. En **Authentication → URL Configuration**, poner `http://localhost:3000` como *Site URL* y añadir
    `http://localhost:3000/**` a *Redirect URLs*.
 6. Reiniciar `npm run dev` y entrar en `/entrar`.
+
+### Entrar con Google
+
+El código ya está puesto (`signInWithOAuth`); lo que falta es la configuración, que es toda por
+consola web. Consultado el 21/09/2026 en la
+[documentación de Supabase](https://supabase.com/docs/guides/auth/social-login/auth-google).
+
+1. En [console.cloud.google.com](https://console.cloud.google.com) crear un proyecto.
+2. En **Google Auth Platform → Branding**, rellenar nombre de la app, correo de soporte y correo de
+   contacto. En **Audience**, tipo *External*. En **Data Access**, los tres permisos básicos:
+   `openid`, `userinfo.email` y `userinfo.profile`. Al ser permisos no sensibles, se puede pulsar
+   *Publish app* sin pasar verificación; si se deja en *Testing*, hay que añadir los dos correos
+   como usuarios de prueba y sale una pantalla de "app no verificada".
+3. En **Clients → Create client → Web application**:
+   - *Authorized JavaScript origins*: `http://localhost:3000` y la URL de Vercel.
+   - *Authorized redirect URIs*: la URL de retorno de Supabase, que aparece en el panel del
+     proveedor y tiene la forma `https://<ref-del-proyecto>.supabase.co/auth/v1/callback`. Copiarla
+     de ahí en vez de escribirla a mano.
+4. Copiar el **Client ID** y el **Client secret**.
+5. En Supabase, **Authentication → Sign In / Providers → Google**: activarlo, pegar las dos claves y
+   guardar.
+6. En **Authentication → URL Configuration**, comprobar que la URL de Vercel está en *Redirect URLs*
+   además de la de localhost.
+
+No hay nada que tocar en `.env.local`: el secreto vive en Supabase, no en la app.
+
+Quien entra con Google llega con el mismo correo, así que la lista de `CORREOS_PERMITIDOS` vale
+igual para los tres caminos. Cuando las dos personas hayan entrado una vez, conviene apagar
+**Allow new users to sign up** en Supabase: a partir de ahí nadie más puede crearse cuenta, ni por
+Google ni por enlace.
 
 Todas las tablas llevan **RLS**: cada persona solo lee y escribe sus propias filas. La única
 excepción a propósito son los supuestos marcados como compartidos, que otras personas de la misma

@@ -118,7 +118,7 @@ export default function Portada() {
             <Link href="/entrar" className="regla hidden text-[0.95rem] text-texto sm:inline">
               Entrar
             </Link>
-            <BotonEnlace href="/temario">Abrir mi cuaderno</BotonEnlace>
+            <BotonEnlace href="/entrar">Abrir mi cuaderno</BotonEnlace>
           </div>
         </div>
       </header>
@@ -144,7 +144,7 @@ export default function Portada() {
                 fallos y te pone exámenes con el reloj del día real.
               </p>
               <div className="flex flex-wrap items-center gap-4">
-                <BotonEnlace href="/temario" tamano="grande">
+                <BotonEnlace href="/entrar" tamano="grande">
                   Empezar con mis temas
                 </BotonEnlace>
                 <a href="#como-funciona" className="regla text-[1.02rem] text-tinta">
@@ -357,7 +357,7 @@ export default function Portada() {
                 Se tarda menos en subir un tema que en decidir por dónde empezar.
               </p>
             </div>
-            <BotonEnlace href="/temario" tamano="grande">
+            <BotonEnlace href="/entrar" tamano="grande">
               Abrir mi cuaderno
             </BotonEnlace>
           </div>
