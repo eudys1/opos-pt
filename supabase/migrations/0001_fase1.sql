@@ -27,8 +27,14 @@ create table if not exists public.perfiles (
 );
 
 -- ------------------------------------------------------------------- temas
-create type estado_contenido as enum ('sin_contenido', 'borrador_ia', 'parcial', 'completo');
-create type estado_estudio as enum ('por_estudiar', 'estudiado', 'en_repaso', 'dominado');
+do $$ begin
+  create type estado_contenido as enum ('sin_contenido', 'borrador_ia', 'parcial', 'completo');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type estado_estudio as enum ('por_estudiar', 'estudiado', 'en_repaso', 'dominado');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.temas (
   id uuid primary key default gen_random_uuid(),
@@ -46,9 +52,10 @@ create table if not exists public.temas (
 create index if not exists temas_usuario_idx on public.temas (usuario_id, numero);
 
 -- -------------------------------------------------------- eventos_estudio
-create type tipo_evento as enum (
-  'estudiado', 'repaso', 'practica', 'supuesto', 'simulacro', 'cantar'
-);
+do $$ begin
+  create type tipo_evento as enum ('estudiado', 'repaso', 'practica', 'supuesto', 'simulacro', 'cantar');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.eventos_estudio (
   id uuid primary key default gen_random_uuid(),
@@ -89,15 +96,19 @@ alter table public.temas enable row level security;
 alter table public.eventos_estudio enable row level security;
 alter table public.objetivos enable row level security;
 
+drop policy if exists "perfil propio" on public.perfiles;
 create policy "perfil propio" on public.perfiles
   for all using (auth.uid() = id) with check (auth.uid() = id);
 
+drop policy if exists "temas propios" on public.temas;
 create policy "temas propios" on public.temas
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
+drop policy if exists "eventos propios" on public.eventos_estudio;
 create policy "eventos propios" on public.eventos_estudio
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
+drop policy if exists "objetivos propios" on public.objetivos;
 create policy "objetivos propios" on public.objetivos
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 

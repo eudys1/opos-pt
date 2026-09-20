@@ -46,9 +46,9 @@ npx tsx scripts/probar-lectura.mts   # prueba la lectura de apuntes contra la AP
    (`sb_publishable_…`; en proyectos antiguos se llamaba `anon public`). La **secret key** no hace
    falta para la app y no debe acabar en el navegador.
 3. Copiar `.env.example` como `.env.local` y pegar esos dos valores, más la clave de Anthropic.
-4. En **SQL Editor**, ejecutar **en orden** los archivos de `supabase/migrations/`:
-   `0001_fase1.sql`, `0002_apuntes.sql`, `0003_banco.sql`, `0004_supuestos.sql`,
-   `0005_simulacros.sql` y `0006_normativa.sql`.
+4. En **SQL Editor**, pegar y ejecutar `supabase/migrations/PENDIENTES.sql`, que junta las
+   migraciones de las fases 2 a 5 en orden. Si el proyecto es nuevo, antes hay que ejecutar
+   `0001_fase1.sql`. Todas se pueden volver a ejecutar sin romper nada.
 5. En **Authentication → URL Configuration**, poner `http://localhost:3000` como *Site URL* y añadir
    `http://localhost:3000/**` a *Redirect URLs*.
 6. Reiniciar `npm run dev` y entrar en `/entrar`.

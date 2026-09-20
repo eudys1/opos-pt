@@ -8,6 +8,7 @@ import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { Cronometro, type ModoReloj } from "@/components/cronometro";
 import { CorreccionDetallada } from "@/components/correccion-detallada";
+import { EntregaEnPapel } from "@/components/entrega-en-papel";
 import { useSesion } from "@/datos/sesion";
 import { CRITERIOS_TEMA } from "@/ia/corregir-tema";
 import type { CorreccionSupuesto } from "@/ia/supuestos";
@@ -55,6 +56,9 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
   const [modo, setModo] = useState<ModoReloj>("restante");
   const [textos, setTextos] = useState<Record<string, string>>({});
   const [entregando, setEntregando] = useState(false);
+  // Cada parte se entrega escrita aquí o con fotos del papel.
+  const [modoEntrega, setModoEntrega] = useState<Record<string, "pantalla" | "papel">>({});
+  const [fotos, setFotos] = useState<Record<string, string[]>>({});
   const [error, setError] = useState("");
   const [supuestosEnunciados, setEnunciados] = useState<Record<string, { enunciado: string; cuestiones: string[]; rubrica: { criterio: string; peso: number }[] }>>({});
 
@@ -148,7 +152,11 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
           simulacroId: id,
           partes: partes
             .filter((p) => p.elegido_id)
-            .map((p) => ({ parteId: p.id, texto: textos[p.id] ?? "" })),
+            .map((p) => ({
+              parteId: p.id,
+              texto: textos[p.id] ?? "",
+              fotos: modoEntrega[p.id] === "papel" ? (fotos[p.id] ?? []) : [],
+            })),
         }),
       });
       const datos = await respuesta.json();
@@ -246,7 +254,13 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
 
   // --- examen en marcha --------------------------------------------------
   const sinElegir = partes.filter((p) => !p.elegido_id);
-  const listasParaEntregar = partes.filter((p) => p.elegido_id && (textos[p.id] ?? "").trim().length > 100);
+  const listasParaEntregar = partes.filter(
+    (p) =>
+      p.elegido_id &&
+      (modoEntrega[p.id] === "papel"
+        ? (fotos[p.id] ?? []).length > 0
+        : (textos[p.id] ?? "").trim().length > 100),
+  );
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
@@ -343,21 +357,53 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
                 </Ficha>
               ) : null}
 
-              <label htmlFor={`texto-${parte.id}`} className="sr-only">
-                Desarrollo de {parte.elegido_titulo}
-              </label>
-              <textarea
-                id={`texto-${parte.id}`}
-                value={texto}
-                onChange={(e) => escribir(parte.id, e.target.value)}
-                rows={20}
-                spellCheck={false}
-                className="w-full rounded-pliegue border border-linea bg-papel-alto px-5 py-4 text-[1rem] leading-[1.8] text-tinta"
-              />
-              <p className="text-[0.85rem] text-apagado" data-numerico>
-                {texto.trim() ? texto.trim().split(/\s+/).length : 0} palabras · se guarda solo en
-                este navegador mientras escribes
-              </p>
+              <fieldset className="flex flex-wrap items-center gap-4">
+                <legend className="sr-only">Cómo entregas esta parte</legend>
+                {(["pantalla", "papel"] as const).map((valor) => (
+                  <label
+                    key={valor}
+                    htmlFor={`modo-${parte.id}-${valor}`}
+                    className="flex min-h-11 cursor-pointer items-center gap-2 text-[0.92rem]"
+                  >
+                    <input
+                      type="radio"
+                      id={`modo-${parte.id}-${valor}`}
+                      name={`modo-${parte.id}`}
+                      checked={(modoEntrega[parte.id] ?? "pantalla") === valor}
+                      onChange={() => setModoEntrega((m) => ({ ...m, [parte.id]: valor }))}
+                      className="h-4 w-4 accent-[color:var(--color-tinta)]"
+                    />
+                    {valor === "pantalla" ? "Lo escribo aquí" : "Lo escribo en papel y subo fotos"}
+                  </label>
+                ))}
+              </fieldset>
+
+              {(modoEntrega[parte.id] ?? "pantalla") === "papel" ? (
+                <EntregaEnPapel
+                  parteId={parte.id}
+                  simulacroId={id}
+                  fotos={fotos[parte.id] ?? []}
+                  onFotos={(rutas) => setFotos((f) => ({ ...f, [parte.id]: rutas }))}
+                />
+              ) : (
+                <>
+                  <label htmlFor={`texto-${parte.id}`} className="sr-only">
+                    Desarrollo de {parte.elegido_titulo}
+                  </label>
+                  <textarea
+                    id={`texto-${parte.id}`}
+                    value={texto}
+                    onChange={(e) => escribir(parte.id, e.target.value)}
+                    rows={20}
+                    spellCheck={false}
+                    className="w-full rounded-pliegue border border-linea bg-papel-alto px-5 py-4 text-[1rem] leading-[1.8] text-tinta"
+                  />
+                  <p className="text-[0.85rem] text-apagado" data-numerico>
+                    {texto.trim() ? texto.trim().split(/\s+/).length : 0} palabras · se guarda solo
+                    en este navegador mientras escribes
+                  </p>
+                </>
+              )}
             </section>
           );
         })}

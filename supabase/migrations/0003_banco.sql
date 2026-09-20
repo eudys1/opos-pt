@@ -1,8 +1,14 @@
 -- Fase 2b: banco de preguntas, intentos y cola de fallos.
 -- Vive solo en la cuenta: practicar requiere haber entrado.
 
-create type tipo_item as enum ('test', 'corta', 'flashcard', 'ley', 'cloze');
-create type origen_item as enum ('ia', 'manual');
+do $$ begin
+  create type tipo_item as enum ('test', 'corta', 'flashcard', 'ley', 'cloze');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type origen_item as enum ('ia', 'manual');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),
@@ -63,11 +69,14 @@ alter table public.items enable row level security;
 alter table public.intentos enable row level security;
 alter table public.fallos enable row level security;
 
+drop policy if exists "items propios" on public.items;
 create policy "items propios" on public.items
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
+drop policy if exists "intentos propios" on public.intentos;
 create policy "intentos propios" on public.intentos
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
+drop policy if exists "fallos propios" on public.fallos;
 create policy "fallos propios" on public.fallos
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);

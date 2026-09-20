@@ -33,8 +33,10 @@ create index if not exists revisiones_idx on public.revisiones_normativa (usuari
 alter table public.normas enable row level security;
 alter table public.revisiones_normativa enable row level security;
 
+drop policy if exists "normas propias" on public.normas;
 create policy "normas propias" on public.normas
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
+drop policy if exists "revisiones propias" on public.revisiones_normativa;
 create policy "revisiones propias" on public.revisiones_normativa
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);

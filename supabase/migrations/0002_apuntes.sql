@@ -14,23 +14,29 @@ on conflict (id) do update
   set file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists "apuntes propios: ver" on storage.objects;
 create policy "apuntes propios: ver" on storage.objects
   for select using (
     bucket_id = 'apuntes' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "apuntes propios: subir" on storage.objects;
 create policy "apuntes propios: subir" on storage.objects
   for insert with check (
     bucket_id = 'apuntes' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+drop policy if exists "apuntes propios: borrar" on storage.objects;
 create policy "apuntes propios: borrar" on storage.objects
   for delete using (
     bucket_id = 'apuntes' and (storage.foldername(name))[1] = auth.uid()::text
   );
 
 -- --------------------------------------------------------- archivos de un tema
-create type estado_lectura as enum ('subido', 'leyendo', 'leido', 'error');
+do $$ begin
+  create type estado_lectura as enum ('subido', 'leyendo', 'leido', 'error');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.archivos_tema (
   id uuid primary key default gen_random_uuid(),
@@ -53,6 +59,7 @@ create index if not exists archivos_tema_idx on public.archivos_tema (usuario_id
 
 alter table public.archivos_tema enable row level security;
 
+drop policy if exists "archivos propios" on public.archivos_tema;
 create policy "archivos propios" on public.archivos_tema
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
@@ -75,9 +82,11 @@ create index if not exists uso_ia_idx on public.uso_ia (usuario_id, creado_en de
 alter table public.uso_ia enable row level security;
 
 -- La persona puede ver su gasto; escribir solo lo hace el servidor.
+drop policy if exists "gasto propio: ver" on public.uso_ia;
 create policy "gasto propio: ver" on public.uso_ia
   for select using (auth.uid() = usuario_id);
 
+drop policy if exists "gasto propio: registrar" on public.uso_ia;
 create policy "gasto propio: registrar" on public.uso_ia
   for insert with check (auth.uid() = usuario_id);
 

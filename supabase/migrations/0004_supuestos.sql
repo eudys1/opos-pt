@@ -1,7 +1,13 @@
 -- Fase 3: banco de supuestos prácticos y sus respuestas.
 
-create type origen_supuesto as enum ('propio', 'ia', 'compartido');
-create type visibilidad_supuesto as enum ('privado', 'especialidad');
+do $$ begin
+  create type origen_supuesto as enum ('propio', 'ia', 'compartido');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type visibilidad_supuesto as enum ('privado', 'especialidad');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.supuestos (
   id uuid primary key default gen_random_uuid(),
@@ -52,11 +58,14 @@ alter table public.respuestas_supuesto enable row level security;
 
 -- Los propios, siempre. Los de otras personas, solo si los han compartido con
 -- la especialidad, y solo para leerlos.
+drop policy if exists "supuestos propios" on public.supuestos;
 create policy "supuestos propios" on public.supuestos
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
+drop policy if exists "supuestos compartidos: leer" on public.supuestos;
 create policy "supuestos compartidos: leer" on public.supuestos
   for select using (visibilidad = 'especialidad');
 
+drop policy if exists "respuestas propias" on public.respuestas_supuesto;
 create policy "respuestas propias" on public.respuestas_supuesto
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);

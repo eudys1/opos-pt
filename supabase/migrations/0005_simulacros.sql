@@ -2,9 +2,18 @@
 -- El reloj lo lleva el servidor: iniciado_en no lo pone el navegador, así que
 -- cerrar la página o cambiar la hora del ordenador no regala tiempo.
 
-create type modalidad_simulacro as enum ('tema', 'supuesto', 'completo');
-create type estado_simulacro as enum ('en_curso', 'entregado', 'corregido', 'abandonado');
-create type tipo_parte as enum ('tema', 'supuesto');
+do $$ begin
+  create type modalidad_simulacro as enum ('tema', 'supuesto', 'completo');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type estado_simulacro as enum ('en_curso', 'entregado', 'corregido', 'abandonado');
+exception when duplicate_object then null;
+end $$;
+do $$ begin
+  create type tipo_parte as enum ('tema', 'supuesto');
+exception when duplicate_object then null;
+end $$;
 
 create table if not exists public.simulacros (
   id uuid primary key default gen_random_uuid(),
@@ -47,9 +56,11 @@ create index if not exists simulacro_partes_idx on public.simulacro_partes (simu
 alter table public.simulacros enable row level security;
 alter table public.simulacro_partes enable row level security;
 
+drop policy if exists "simulacros propios" on public.simulacros;
 create policy "simulacros propios" on public.simulacros
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
+drop policy if exists "partes propias" on public.simulacro_partes;
 create policy "partes propias" on public.simulacro_partes
   for all using (auth.uid() = usuario_id) with check (auth.uid() = usuario_id);
 
