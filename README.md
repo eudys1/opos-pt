@@ -49,9 +49,25 @@ Mientras no se haga esto, todo se guarda solo en este navegador.
    falta y no debe acabar en el navegador.
 3. Copiar `.env.example` como `.env.local` y pegar esos dos valores.
 4. En **SQL Editor**, pegar y ejecutar el contenido de `supabase/migrations/0001_fase1.sql`.
-5. Reiniciar `npm run dev`.
+5. En **Authentication → URL Configuration**, poner `http://localhost:3000` como *Site URL* y añadir
+   `http://localhost:3000/**` a *Redirect URLs*. Sin esto, el enlace del correo no vuelve a la app.
+6. Reiniciar `npm run dev` y entrar en `/entrar`.
 
 La migración crea las tablas con **RLS**: cada persona solo puede leer y escribir sus propias filas.
+
+Cómo funciona la sincronización: el navegador sigue siendo quien pinta la pantalla, así que la app
+va rápida y aguanta sin conexión. Al entrar se fusiona con la cuenta —las marcas y los objetivos se
+unen por id y de cada tema se queda la versión modificada más tarde, así que no se pierde nada— y
+después cada cambio sube solo.
+
+Para comprobar que todo eso sigue funcionando contra la base de datos real:
+
+```bash
+npm run probar:nube
+```
+
+Crea dos usuarios de prueba, verifica la fusión, el guardado y que una cuenta no ve ni toca los
+datos de la otra, y los borra al terminar.
 
 ## Cómo está organizado
 

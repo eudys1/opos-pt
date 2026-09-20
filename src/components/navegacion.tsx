@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { useState } from "react";
 import { Marca } from "@/components/marcas";
 import { SelectorTema } from "@/components/selector-tema";
+import { EstadoCuenta } from "@/components/estado-cuenta";
 import { useCuaderno } from "@/datos/almacen";
 import { diasParaExamen } from "@/nucleo/racha";
 import { fechaLarga } from "@/nucleo/fechas";
@@ -78,6 +79,10 @@ export function Navegacion() {
         </nav>
 
         <CuentaAtras />
+
+        <div className="border-t border-linea px-6 py-4">
+          <EstadoCuenta />
+        </div>
 
         <div className="border-t border-linea px-6 py-4">
           <SelectorTema />

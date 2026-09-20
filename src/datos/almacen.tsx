@@ -299,3 +299,20 @@ export function useCuaderno() {
 export function temasConContenido(temas: Tema[]): Tema[] {
   return temas.filter((t) => t.estadoContenido !== "sin_contenido");
 }
+
+// --- Puentes para la sincronización con la nube (src/datos/nube.ts) -------
+
+/** Lee el estado actual fuera de React. */
+export function leerEstado(): Estado {
+  return estado;
+}
+
+/** Reemplaza el estado entero, por ejemplo al fusionar con lo de la cuenta. */
+export function reemplazarEstado(nuevo: Estado) {
+  actualizar(() => nuevo);
+}
+
+/** Avisa de cada cambio del almacén. Devuelve la función para dejar de escuchar. */
+export function suscribirAlmacen(escucha: () => void) {
+  return suscribir(escucha);
+}

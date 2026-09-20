@@ -81,7 +81,9 @@ function FormularioAcceso() {
       const supabase = clienteNavegador();
       const { error } = await supabase.auth.signInWithOtp({
         email: correo,
-        options: { emailRedirectTo: `${window.location.origin}/registro` },
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/registro`,
+        },
       });
       if (error) throw error;
       setEstado("enviado");
