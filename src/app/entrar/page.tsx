@@ -56,7 +56,7 @@ function SinCuentasTodavia() {
         <h2 className="text-lg">Qué falta para tener cuenta</h2>
         <ol className="mt-3 flex flex-col gap-2 text-[0.95rem] leading-relaxed text-texto">
           <li>1. Crear un proyecto gratuito en supabase.com.</li>
-          <li>2. Pegar sus dos claves en el archivo .env.local del proyecto.</li>
+          <li>2. Pegar su URL y su publishable key en el archivo .env.local del proyecto.</li>
           <li>3. Ejecutar la migración que está en supabase/migrations.</li>
         </ol>
         <p className="mt-3 text-[0.9rem] leading-relaxed text-apagado">

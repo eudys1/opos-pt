@@ -44,7 +44,9 @@ ninguna violación en todas las páginas.
 Mientras no se haga esto, todo se guarda solo en este navegador.
 
 1. Crear una cuenta en [supabase.com](https://supabase.com) y un proyecto nuevo (plan gratuito).
-2. En **Project Settings → API**, copiar `Project URL` y `anon public`.
+2. En **Project Settings → API Keys**, copiar el `Project URL` y la **publishable key**
+   (`sb_publishable_…`; en proyectos antiguos se llamaba `anon public`). La **secret key** no hace
+   falta y no debe acabar en el navegador.
 3. Copiar `.env.example` como `.env.local` y pegar esos dos valores.
 4. En **SQL Editor**, pegar y ejecutar el contenido de `supabase/migrations/0001_fase1.sql`.
 5. Reiniciar `npm run dev`.
