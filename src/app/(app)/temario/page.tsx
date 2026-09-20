@@ -5,6 +5,8 @@ import clsx from "clsx";
 import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { Boton } from "@/components/ui/boton";
+import { SubidaApuntes } from "@/components/subida-apuntes";
+import { GeneradorBanco } from "@/components/generador-banco";
 import { useCuaderno } from "@/datos/almacen";
 import {
   AVISO_LITERALIDAD,
@@ -35,17 +37,9 @@ export default function PaginaTemario() {
           <h1 className="text-[2.1rem]">Mi temario</h1>
           <p className="mt-1 max-w-[62ch] text-[0.98rem] leading-relaxed text-texto">
             Los 25 títulos son los oficiales. El contenido lo pones tú: de momento puedes pegar o
-            escribir el texto de cada tema. La subida de fotos y PDF con lectura automática llega en
-            la siguiente fase.
+            escribir el texto de cada tema, o subir fotos y PDF para que se lean solos. Lo leído
+            aparece para que lo revises antes de guardarlo.
           </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Boton tono="secundario" disabled title="Disponible cuando se conecte la lectura de imágenes">
-            Subir fotos
-          </Boton>
-          <Boton tono="secundario" disabled title="Disponible cuando se conecte la lectura de PDF">
-            Subir PDF
-          </Boton>
         </div>
       </header>
 
@@ -84,6 +78,7 @@ export default function PaginaTemario() {
 
                 {estaAbierto ? (
                   <EditorTema
+                    temaId={tema.id}
                     id={`panel-${tema.id}`}
                     numero={tema.numero}
                     titulo={tema.titulo}
@@ -112,6 +107,7 @@ export default function PaginaTemario() {
 }
 
 function EditorTema({
+  temaId,
   id,
   numero,
   titulo,
@@ -120,6 +116,7 @@ function EditorTema({
   onGuardar,
   onRenombrar,
 }: {
+  temaId: string;
   id: string;
   numero: number;
   titulo: string;
@@ -150,6 +147,15 @@ function EditorTema({
       ) : null}
 
       <EditorTitulo id={id} titulo={titulo} onRenombrar={onRenombrar} />
+
+      <SubidaApuntes
+        temaId={temaId}
+        numeroTema={numero}
+        onTextoLeido={(leido) => {
+          setBorrador((previo) => (previo.trim() ? `${previo.trim()}\n\n${leido}` : leido));
+          setGuardado(false);
+        }}
+      />
 
       <label htmlFor={`${id}-texto`} className="block text-[0.9rem] font-semibold text-tinta">
         Tu tema
@@ -207,6 +213,8 @@ function EditorTema({
           {guardado ? "Guardado." : ""}
         </span>
       </div>
+
+      <GeneradorBanco temaId={temaId} hayTexto={texto.trim().length > 0} />
     </div>
   );
 }
