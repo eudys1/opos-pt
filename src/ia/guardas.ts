@@ -18,7 +18,10 @@ export type Contexto = {
   gastoMes: number;
 };
 
-export async function prepararLlamada(): Promise<Contexto | NextResponse> {
+/** Solo sesión: para las rutas que no gastan IA, como el sorteo. */
+export async function prepararSesion(): Promise<
+  { supabase: SupabaseClient; usuario: User } | NextResponse
+> {
   const supabase = await clienteServidor();
   const { data } = await supabase.auth.getUser();
   const usuario = data.user;
@@ -26,6 +29,14 @@ export async function prepararLlamada(): Promise<Contexto | NextResponse> {
   if (!usuario) {
     return NextResponse.json({ error: "Hay que entrar con tu cuenta." }, { status: 401 });
   }
+
+  return { supabase, usuario };
+}
+
+export async function prepararLlamada(): Promise<Contexto | NextResponse> {
+  const sesion = await prepararSesion();
+  if (sesion instanceof NextResponse) return sesion;
+  const { supabase, usuario } = sesion;
 
   const { data: gastado } = await supabase.rpc("gasto_del_mes");
   const gastoMes = Number(gastado ?? 0);
