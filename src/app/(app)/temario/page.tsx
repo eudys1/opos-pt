@@ -7,6 +7,7 @@ import { Etiqueta } from "@/components/ui/etiqueta";
 import { Boton } from "@/components/ui/boton";
 import { SubidaApuntes } from "@/components/subida-apuntes";
 import { GeneradorBanco } from "@/components/generador-banco";
+import { ReproductorTema } from "@/components/reproductor-tema";
 import { useCuaderno } from "@/datos/almacen";
 import {
   AVISO_LITERALIDAD,
@@ -213,6 +214,12 @@ function EditorTema({
           {guardado ? "Guardado." : ""}
         </span>
       </div>
+
+      {borrador.trim() ? (
+        <div className="mt-5 border-t border-linea-suave pt-4">
+          <ReproductorTema texto={borrador} titulo={String(numero)} />
+        </div>
+      ) : null}
 
       <GeneradorBanco temaId={temaId} hayTexto={texto.trim().length > 0} />
     </div>

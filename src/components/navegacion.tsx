@@ -14,15 +14,13 @@ import { fechaLarga } from "@/nucleo/fechas";
 const secciones = [
   { href: "/temario", texto: "Mi temario" },
   { href: "/registro", texto: "Registro de estudio" },
-  { href: "/planificador", texto: "Planificador" },
-  { href: "/progreso", texto: "Mi progreso" },
-];
-
-const proximamente = [
   { href: "/practicar", texto: "Practicar" },
   { href: "/fallos", texto: "Repaso de fallos" },
   { href: "/supuestos", texto: "Supuestos" },
   { href: "/simulacros", texto: "Simulacros" },
+  { href: "/planificador", texto: "Planificador" },
+  { href: "/progreso", texto: "Mi progreso" },
+  { href: "/normativa", texto: "Normativa" },
 ];
 
 export function Navegacion() {
@@ -64,18 +62,6 @@ export function Navegacion() {
             <Enlace key={s.href} href={s.href} texto={s.texto} onNavegar={() => setAbierto(false)} />
           ))}
 
-          <p className="px-3 pb-1 pt-5 text-[0.7rem] font-bold uppercase tracking-[0.12em] text-tenue">
-            En construcción
-          </p>
-          {proximamente.map((s) => (
-            <Enlace
-              key={s.href}
-              href={s.href}
-              texto={s.texto}
-              proximamente
-              onNavegar={() => setAbierto(false)}
-            />
-          ))}
         </nav>
 
         <CuentaAtras />

@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import clsx from "clsx";
 import { Ficha } from "@/components/ui/ficha";
 import { useCuaderno } from "@/datos/almacen";
+import { GraficasNube } from "@/components/graficas-nube";
+import { ExportarDatos } from "@/components/exportar-datos";
 import { tituloCorto } from "@/contenido/temario-pt";
 import { fechaCorta, hoyISO, sumarDias } from "@/nucleo/fechas";
 import { calcularRacha, diasParaExamen } from "@/nucleo/racha";
@@ -209,10 +211,14 @@ export default function PaginaProgreso() {
         </ol>
       </Ficha>
 
-      <p className="text-[0.85rem] text-apagado">
-        Con contenido: {conContenido} de {temas.length} temas. Las gráficas de aciertos, fallos y
-        notas de simulacro aparecerán cuando esas partes estén en marcha.
-      </p>
+      <GraficasNube />
+
+      <div className="flex flex-col gap-3 border-t border-linea pt-5">
+        <ExportarDatos />
+        <p className="text-[0.85rem] text-apagado">
+          Con contenido: {conContenido} de {temas.length} temas.
+        </p>
+      </div>
     </div>
   );
 }

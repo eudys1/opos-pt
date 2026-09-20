@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Karla } from "next/font/google";
 import "./globals.css";
+import { RegistroSW } from "@/components/registro-sw";
 
 const display = Fraunces({
   variable: "--fuente-display",
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Saltar al contenido
         </a>
         {children}
+        <RegistroSW />
       </body>
     </html>
   );

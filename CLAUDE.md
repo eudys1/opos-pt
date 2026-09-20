@@ -21,6 +21,11 @@ npx eslint src --max-warnings=0
   nube debe ser cambiar este adaptador y nada más.
 - `src/contenido/temario-pt.ts` — los 25 títulos oficiales, su fuente y los avisos de literalidad.
 - `src/app/(app)/` — la app con sesión; `src/app/page.tsx` es la portada pública.
+- `src/app/api/` — rutas de servidor. **Son las únicas que ven ANTHROPIC_API_KEY.** Todas pasan por
+  `prepararLlamada` o `prepararSesion` (`src/ia/guardas.ts`), que resuelven sesión, tope de gasto,
+  registro del consumo y traducción de los errores de la API.
+- `src/ia/` — un archivo por tarea (leer apuntes, banco, correcciones, supuestos, normativa) con su
+  prompt y su esquema de salida.
 - `src/components/ui/` — piezas de interfaz del sistema de diseño.
 
 ## Reglas de producto que no se tocan sin hablarlo
@@ -31,7 +36,11 @@ npx eslint src --max-warnings=0
    dice siempre con cuánto temario se trabaja. Un borrador de IA se marca como tal en todas partes.
 3. **Los repasos se cuentan desde el último repaso hecho**, no desde la fecha teórica.
 4. **Los supuestos salen sin etiquetas en los sorteos**, y variados entre sí.
-5. Nada de datos inventados en la interfaz: si no se sabe, se dice.
+5. **Cada pregunta guarda la cita literal del tema de la que sale**, y `esUtilizable` descarta las que
+   no se pueden comprobar contra los apuntes. No quitar ese filtro.
+6. **Las notas se recalculan en local** con `notaPonderada`, no se usa la media que devuelva el modelo.
+7. **La hora de inicio de un simulacro la pone el servidor.** Nunca calcular el reloj desde el cliente.
+8. Nada de datos inventados en la interfaz: si no se sabe, se dice.
 
 ## Sistema de diseño "Cuaderno"
 
@@ -50,6 +59,10 @@ Papel hueso, tinta azul, margen rojo. Fraunces (display, variable) sobre Karla (
 
 ## Estado
 
-Fase 1 hecha (temario, registro, planificador, progreso) sobre almacén local. Las fases 2 a 5
-(lectura de apuntes con IA, banco de preguntas, supuestos, simulacros, audio y normativa) están
-pendientes y necesitan las claves de Supabase y de Anthropic en `.env.local`.
+Fases 1 a 5 hechas: temario con lectura de apuntes, registro, practicar, fallos, supuestos,
+simulacros, planificador, progreso, normativa, audio, modo oscuro y PWA. Requiere las claves de
+Supabase y Anthropic en `.env.local` y las migraciones de `supabase/migrations/` ejecutadas en orden.
+
+Pendiente de decidir con los usuarios: criterios oficiales de corrección cuando se publiquen,
+preparación de la segunda prueba (programación didáctica y defensa oral), "cantar temas",
+cronómetro tipo Pomodoro y retos en grupo.
