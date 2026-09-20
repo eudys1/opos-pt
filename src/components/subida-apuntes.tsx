@@ -40,7 +40,7 @@ export function SubidaApuntes({
   const [estado, setEstado] = useState<Estado>("quieto");
   const [progreso, setProgreso] = useState("");
   const [resultados, setResultados] = useState<Resultado[]>([]);
-  const [gasto, setGasto] = useState<{ mes: number; limite: number } | null>(null);
+  const [gasto, setGasto] = useState<{ mes: number } | null>(null);
   const [error, setError] = useState("");
 
   const disponible = Boolean(usuario && cliente);
@@ -92,22 +92,30 @@ export function SubidaApuntes({
       }
 
       setEstado("leyendo");
-      setProgreso(
-        lista.length === 1
-          ? "Leyendo la página. Suele tardar menos de un minuto."
-          : `Leyendo ${lista.length} archivos. Suele tardar entre uno y tres minutos.`,
-      );
 
-      const respuesta = await fetch("/api/leer-apuntes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ archivoIds: subidos.map((s) => s.id) }),
-      });
-      const datos = await respuesta.json();
+      // Por tandas de tres: cada petición tiene que caber en el límite de
+      // tiempo del servidor, y de paso se ve avanzar el trabajo.
+      const POR_TANDA = 3;
+      const crudos: { id: string; estado: "leido" | "error"; texto?: string; error?: string }[] = [];
+      let gastoFinal = 0;
 
-      if (!respuesta.ok) {
-        throw new Error(datos.error ?? "No se ha podido leer los apuntes.");
+      for (let i = 0; i < subidos.length; i += POR_TANDA) {
+        const tanda = subidos.slice(i, i + POR_TANDA);
+        setProgreso(
+          `Leyendo ${Math.min(i + tanda.length, subidos.length)} de ${subidos.length}. Cada página tarda unos segundos.`,
+        );
+        const respuesta = await fetch("/api/leer-apuntes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ archivoIds: tanda.map((s) => s.id) }),
+        });
+        const datosTanda = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datosTanda.error ?? "No se ha podido leer los apuntes.");
+        crudos.push(...datosTanda.resultados);
+        gastoFinal = datosTanda.gastoMes ?? gastoFinal;
       }
+
+      const datos = { resultados: crudos, gastoMes: gastoFinal };
 
       const textos: string[] = [];
       const resumen: Resultado[] = datos.resultados.map(
@@ -125,7 +133,7 @@ export function SubidaApuntes({
       );
 
       setResultados(resumen);
-      setGasto({ mes: datos.gastoMes, limite: datos.limiteMensual });
+      setGasto({ mes: datos.gastoMes });
       if (textos.length > 0) onTextoLeido(textos.join("\n\n"));
       setEstado("hecho");
       setProgreso("");
@@ -213,7 +221,7 @@ export function SubidaApuntes({
 
       {gasto ? (
         <p className="text-[0.82rem] text-apagado" data-numerico>
-          Llevas {gasto.mes.toFixed(2)} $ de {gasto.limite} $ de lectura este mes.
+          Llevas {gasto.mes.toFixed(2)} $ de IA este mes.
         </p>
       ) : null}
     </div>

@@ -47,10 +47,13 @@ En "explicacion" añade una frase que ayude a entender el porqué, sin salirte d
 
 export type ResultadoBanco = { items: ItemGenerado[]; descartadas: number; uso: Uso };
 
+export type TipoPedido = "test" | "corta" | "flashcard" | "ley";
+
 export async function generarBanco(
   ia: Anthropic,
   tema: { numero: number; titulo: string; texto: string },
-  cuantas = 20,
+  cuantas = 10,
+  tipos: TipoPedido[] = ["test", "corta", "flashcard", "ley"],
 ): Promise<ResultadoBanco> {
   const respuesta = await ia.messages.parse({
     model: MODELOS.banco,
@@ -62,7 +65,7 @@ export async function generarBanco(
         role: "user",
         content: `Tema ${tema.numero}: ${tema.titulo}
 
-Escribe unas ${cuantas} preguntas repartidas entre los cuatro tipos, con una de tipo "ley" por cada norma citada en el texto.
+Escribe unas ${cuantas} preguntas, SOLO de estos tipos: ${tipos.join(", ")}.${tipos.includes("ley") ? " Incluye una de tipo \"ley\" por cada norma citada en el texto." : ""}
 
 --- APUNTES ---
 ${tema.texto}
@@ -76,7 +79,9 @@ ${tema.texto}
   }
 
   const generadas = respuesta.parsed_output?.items ?? [];
-  const validas = generadas.filter((item) => esUtilizable(item, tema.texto));
+  const validas = generadas
+    .filter((item) => tipos.includes(item.tipo))
+    .filter((item) => esUtilizable(item, tema.texto));
 
   return {
     items: validas,

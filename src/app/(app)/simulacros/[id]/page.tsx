@@ -56,6 +56,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
   const [modo, setModo] = useState<ModoReloj>("restante");
   const [textos, setTextos] = useState<Record<string, string>>({});
   const [entregando, setEntregando] = useState(false);
+  const [paso, setPaso] = useState("");
   // Cada parte se entrega escrita aquí o con fotos del papel.
   const [modoEntrega, setModoEntrega] = useState<Record<string, "pantalla" | "papel">>({});
   const [fotos, setFotos] = useState<Record<string, string[]>>({});
@@ -141,26 +142,51 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
     setVersion((v) => v + 1);
   }
 
+  /**
+   * Entrega en pasos cortos: primero se leen las fotos de dos en dos y después
+   * se corrige una parte por petición. Cada paso cabe en el límite de tiempo
+   * del servidor, y mientras tanto se ve por dónde va.
+   */
   async function entregar() {
     setEntregando(true);
     setError("");
     try {
-      const respuesta = await fetch("/api/simulacro/entregar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          simulacroId: id,
-          partes: partes
-            .filter((p) => p.elegido_id)
-            .map((p) => ({
-              parteId: p.id,
-              texto: textos[p.id] ?? "",
-              fotos: modoEntrega[p.id] === "papel" ? (fotos[p.id] ?? []) : [],
-            })),
-        }),
-      });
-      const datos = await respuesta.json();
-      if (!respuesta.ok) throw new Error(datos.error ?? "No se ha podido entregar.");
+      for (const parte of partes.filter((p) => p.elegido_id)) {
+        const enPapel = modoEntrega[parte.id] === "papel";
+        const hojas = enPapel ? (fotos[parte.id] ?? []) : [];
+        let texto = textos[parte.id] ?? "";
+
+        if (enPapel) {
+          const trozos: string[] = [];
+          for (let i = 0; i < hojas.length; i += 2) {
+            const tanda = hojas.slice(i, i + 2);
+            setPaso(
+              `Leyendo tus hojas: ${Math.min(i + tanda.length, hojas.length)} de ${hojas.length}`,
+            );
+            const respuesta = await fetch("/api/transcribir", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rutas: tanda }),
+            });
+            const datos = await respuesta.json();
+            if (!respuesta.ok) throw new Error(datos.error ?? "No se han podido leer las fotos.");
+            trozos.push(datos.texto);
+          }
+          texto = trozos.join("\n\n");
+        }
+
+        setPaso(
+          parte.tipo === "tema" ? "Corrigiendo el tema…" : "Corrigiendo el supuesto práctico…",
+        );
+        const respuesta = await fetch("/api/simulacro/entregar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parteId: parte.id, texto, fotos: hojas, desdeFoto: enPapel }),
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error ?? "No se ha podido corregir esta parte.");
+      }
+
       try {
         window.localStorage.removeItem(claveBorrador);
       } catch {
@@ -170,6 +196,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se ha podido entregar.");
     } finally {
+      setPaso("");
       setEntregando(false);
     }
   }
@@ -421,11 +448,12 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
             onClick={() => void entregar()}
             disabled={entregando || listasParaEntregar.length === 0}
           >
-            {entregando ? "Corrigiendo… puede tardar un par de minutos" : "Entregar y corregir"}
+            {entregando ? "Corrigiendo…" : "Entregar y corregir"}
           </Boton>
-          <p className="max-w-[46ch] text-[0.88rem] leading-snug text-apagado">
-            Se acepta la entrega aunque se haya pasado el tiempo, pero queda registrado cuánto has
-            tardado de verdad.
+          <p className="max-w-[46ch] text-[0.88rem] leading-snug text-apagado" aria-live="polite">
+            {entregando
+              ? paso || "Corrigiendo, no cierres la página."
+              : "Se acepta la entrega aunque se haya pasado el tiempo, pero queda registrado cuánto has tardado de verdad."}
           </p>
         </div>
       ) : null}

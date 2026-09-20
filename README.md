@@ -116,3 +116,21 @@ se puede probar con `npm test` y no cambia al tocar la nube.
 - Andalucía no publica los porcentajes de corrección por especialidad, así que los criterios del
   tema son un reparto razonable (`CRITERIOS_TEMA` en `src/ia/corregir-tema.ts`) y habrá que
   ajustarlos cuando salgan los de la convocatoria.
+
+## Publicar en Vercel
+
+1. `npx vercel` en la carpeta del proyecto (o importar el repositorio desde vercel.com).
+2. En **Settings → Environment Variables** del proyecto, añadir las mismas variables que hay en
+   `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
+   `ANTHROPIC_API_KEY` y `CORREOS_PERMITIDOS`. Las dos últimas son privadas y no salen nunca al
+   navegador.
+3. En Supabase, **Authentication → URL Configuration**, añadir la URL de Vercel como *Site URL* y
+   `https://<tu-dominio>.vercel.app/**` a *Redirect URLs*, o el enlace del correo no volverá a la app.
+4. En Supabase, **Authentication → Sign In / Providers**, desactivar el registro de nuevos usuarios
+   una vez hayan entrado las personas que la van a usar.
+
+**Cuidado con el límite de tiempo.** En el plan gratuito de Vercel una petición no puede durar más
+de 60 segundos. Por eso el trabajo va troceado: los apuntes se leen de tres en tres, el banco de
+preguntas se crea en dos llamadas y cada parte del simulacro se corrige por separado, transcribiendo
+las fotos de dos en dos. Si algún día se amplía lo que hace una llamada, hay que respetar ese límite
+o el plan de Vercel tiene que subir.

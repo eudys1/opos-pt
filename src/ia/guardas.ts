@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { clienteServidor } from "@/datos/supabase-servidor";
 import { LIMITE_MENSUAL, clienteIA } from "./cliente";
+import { MENSAJE_SIN_ACCESO, tieneAcceso } from "./acceso";
 import type { Uso } from "./cliente";
 
 /**
@@ -28,6 +29,11 @@ export async function prepararSesion(): Promise<
 
   if (!usuario) {
     return NextResponse.json({ error: "Hay que entrar con tu cuenta." }, { status: 401 });
+  }
+
+  // La app publicada es privada: solo los correos de la lista.
+  if (!tieneAcceso(usuario.email)) {
+    return NextResponse.json({ error: MENSAJE_SIN_ACCESO }, { status: 403 });
   }
 
   return { supabase, usuario };

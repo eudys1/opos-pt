@@ -1,22 +1,37 @@
 import { NextResponse } from "next/server";
 import { MODELOS } from "@/ia/cliente";
-import { generarBanco } from "@/ia/generar-banco";
+import { generarBanco, type TipoPedido } from "@/ia/generar-banco";
 import { mensajeDeError, prepararLlamada, registrarUso } from "@/ia/guardas";
 
-/** Crea el banco de preguntas de un tema a partir de su texto. */
+/**
+ * Crea el banco de preguntas de un tema a partir de su texto.
+ *
+ * Va por grupos de tipos, no de una tacada: cada petición tiene que caber
+ * holgadamente en el límite de tiempo de una función de Vercel (60 s en el plan
+ * gratuito), así que el cliente llama dos veces y enseña el progreso.
+ */
 
-export const maxDuration = 300;
+export const maxDuration = 60;
+
+const GRUPOS: Record<string, TipoPedido[]> = {
+  escritas: ["test", "corta"],
+  tarjetas: ["flashcard", "ley"],
+};
 
 export async function POST(peticion: Request) {
   const ctx = await prepararLlamada();
   if (ctx instanceof NextResponse) return ctx;
 
   let temaId: string | undefined;
-  let cuantas = 20;
+  let grupo: keyof typeof GRUPOS = "escritas";
+  let cuantas = 10;
+  let reemplazar = true;
   try {
-    const cuerpo = (await peticion.json()) as { temaId?: unknown; cuantas?: unknown };
+    const cuerpo = (await peticion.json()) as Record<string, unknown>;
     if (typeof cuerpo.temaId === "string") temaId = cuerpo.temaId;
-    if (typeof cuerpo.cuantas === "number") cuantas = Math.min(40, Math.max(5, cuerpo.cuantas));
+    if (cuerpo.grupo === "escritas" || cuerpo.grupo === "tarjetas") grupo = cuerpo.grupo;
+    if (typeof cuerpo.cuantas === "number") cuantas = Math.min(20, Math.max(4, cuerpo.cuantas));
+    if (cuerpo.reemplazar === false) reemplazar = false;
   } catch {
     return NextResponse.json({ error: "Petición mal formada." }, { status: 400 });
   }
@@ -46,11 +61,24 @@ export async function POST(peticion: Request) {
   }
 
   try {
+    const tipos = GRUPOS[grupo];
     const { items, descartadas, uso } = await generarBanco(
       ctx.ia,
       { numero: tema.numero, titulo: tema.titulo, texto },
       cuantas,
+      tipos,
     );
+
+    // Se reemplaza el banco anterior de estos tipos: así no se acumulan
+    // preguntas de una versión de los apuntes que ya no existe.
+    if (reemplazar) {
+      await ctx.supabase
+        .from("items")
+        .delete()
+        .eq("tema_id", tema.id)
+        .eq("origen", "ia")
+        .in("tipo", tipos);
+    }
 
     if (items.length === 0) {
       return NextResponse.json(
@@ -61,14 +89,6 @@ export async function POST(peticion: Request) {
         { status: 422 },
       );
     }
-
-    // Se reemplaza el banco anterior de este tema: así no se acumulan preguntas
-    // viejas de una versión de los apuntes que ya no existe.
-    await ctx.supabase
-      .from("items")
-      .delete()
-      .eq("tema_id", tema.id)
-      .eq("origen", "ia");
 
     const { error: errorInsercion } = await ctx.supabase.from("items").insert(
       items.map((item) => ({

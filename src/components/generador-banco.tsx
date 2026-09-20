@@ -20,6 +20,7 @@ export function GeneradorBanco({
   const { usuario, cliente } = useSesion();
   const [existentes, setExistentes] = useState<number | null>(null);
   const [trabajando, setTrabajando] = useState(false);
+  const [paso, setPaso] = useState("");
   const [resultado, setResultado] = useState<{
     creadas: number;
     descartadas: number;
@@ -45,22 +46,42 @@ export function GeneradorBanco({
 
   if (!usuario || !hayTexto) return null;
 
+  // Dos llamadas cortas en vez de una larga: así cada una cabe de sobra en el
+  // límite de tiempo del servidor y se puede ir contando lo que lleva hecho.
+  const GRUPOS = [
+    { grupo: "escritas", texto: "tests y preguntas cortas" },
+    { grupo: "tarjetas", texto: "flashcards y legislación" },
+  ] as const;
+
   async function generar() {
     setTrabajando(true);
     setError("");
     setResultado(null);
     try {
-      const respuesta = await fetch("/api/generar-banco", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ temaId, cuantas: 20 }),
-      });
-      const datos = await respuesta.json();
-      if (!respuesta.ok) throw new Error(datos.error ?? "No se han podido crear las preguntas.");
-      setResultado(datos);
+      const total = { creadas: 0, descartadas: 0, porTipo: {} as Record<string, number>, gastoMes: 0 };
+
+      for (const { grupo, texto } of GRUPOS) {
+        setPaso(`Escribiendo ${texto}…`);
+        const respuesta = await fetch("/api/generar-banco", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ temaId, grupo, cuantas: 10 }),
+        });
+        const datos = await respuesta.json();
+        if (!respuesta.ok) throw new Error(datos.error ?? "No se han podido crear las preguntas.");
+        total.creadas += datos.creadas;
+        total.descartadas += datos.descartadas;
+        total.gastoMes = datos.gastoMes;
+        for (const [tipo, n] of Object.entries(datos.porTipo as Record<string, number>)) {
+          total.porTipo[tipo] = (total.porTipo[tipo] ?? 0) + n;
+        }
+      }
+
+      setResultado(total);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se han podido crear las preguntas.");
     } finally {
+      setPaso("");
       setTrabajando(false);
     }
   }
@@ -77,9 +98,9 @@ export function GeneradorBanco({
               ? "Rehacer las preguntas"
               : "Crear preguntas de este tema"}
         </Boton>
-        <span className="max-w-[44ch] text-[0.85rem] leading-snug text-apagado">
+        <span className="max-w-[44ch] text-[0.85rem] leading-snug text-apagado" aria-live="polite">
           {trabajando
-            ? "Tarda entre medio minuto y dos minutos."
+            ? paso || "Tarda un par de minutos en total."
             : yaHabia
               ? `Este tema tiene ${existentes} preguntas. Rehacerlas borra las anteriores y las escribe otra vez desde el texto de arriba.`
               : "Tests, preguntas cortas, flashcards y una por cada ley citada, todas sacadas de este texto."}
