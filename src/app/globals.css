@@ -1,26 +1,137 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  Sistema de diseño "Cuaderno" (dirección A).
+  Papel hueso, tinta azul, margen rojo. La elevación se hace con filete
+  de 1 px, nunca con sombras difusas.
+*/
+@theme {
+  --color-papel: #f7f2e7;
+  --color-papel-alto: #fffdf7;
+  --color-papel-franja: #f2ebdb;
+  --color-tinta: #1b2a4a;
+  --color-tinta-suave: #3e4a5c;
+  --color-texto: #4a4540;
+  --color-apagado: #7a7266;
+  --color-tenue: #9a9184;
+  --color-linea: #e2d9c6;
+  --color-linea-suave: #efe7d6;
+  --color-margen: #b03a2b;
+  --color-margen-hilo: #d9836f;
+  --color-margen-fondo: #fbeeea;
+  --color-visto: #2f6b4f;
+  --color-visto-fondo: #eaf1ec;
+
+  --font-display: var(--fuente-display), Georgia, "Times New Roman", serif;
+  --font-sans: var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-pliegue: 3px;
+  --radius-ficha: 4px;
+
+  --text-titulo: 3.875rem;
+  --text-titulo--line-height: 1.02;
+  --text-titulo--letter-spacing: -0.02em;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Pauta del cuaderno: se aplica a las fichas que imitan una hoja rayada. */
+@utility pauta {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 35px,
+    var(--color-linea-suave) 35px 36px
+  );
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-papel);
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+
+  ::selection {
+    background-color: var(--color-margen-hilo);
+    color: var(--color-papel-alto);
+  }
+
+  /* Un foco visible de verdad, del color del margen, en todo lo que se pueda enfocar. */
+  :focus-visible {
+    outline: 2px solid var(--color-margen);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* Tabulares en todo dato numérico: las columnas de repasos no deben bailar. */
+  table,
+  time,
+  [data-numerico] {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Trazos escritos a mano: el visto se dibuja en vez de aparecer de golpe. */
+@layer utilities {
+  .trazo {
+    stroke-dasharray: 28;
+    stroke-dashoffset: 28;
+    animation: escribir 420ms cubic-bezier(0.32, 0.72, 0.35, 1) forwards;
+  }
+
+  .entra {
+    animation: entrar 520ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+  }
+
+  /* Subrayado que se traza al pasar por encima, como con regla. */
+  .regla {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 220ms cubic-bezier(0.22, 0.68, 0.3, 1);
+  }
+  .regla:hover,
+  .regla:focus-visible {
+    background-size: 100% 1px;
+  }
+}
+
+@keyframes escribir {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

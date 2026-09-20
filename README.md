@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cuaderno
 
-## Getting Started
+App de estudio para la oposición al Cuerpo de Maestros, especialidad **Educación Especial:
+Pedagogía Terapéutica**, en Andalucía. Registra lo que estudias, programa los repasos, guarda los
+fallos y, más adelante, genera preguntas y simulacros a partir de tus propios apuntes.
 
-First, run the development server:
+## Arrancar
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La app queda en http://localhost:3000. **No hace falta ninguna clave para usarla**: de momento los
+datos se guardan en el navegador (`localStorage`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Otros comandos:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm test          # pruebas de la lógica de repasos y rachas
+npm run build     # compilación de producción
+```
 
-## Learn More
+## En qué punto está
 
-To learn more about Next.js, take a look at the following resources:
+| Fase | Qué incluye | Estado |
+| --- | --- | --- |
+| 0 | Dirección visual «Cuaderno» y sistema de diseño | hecho |
+| 1 | Temario, registro de estudio con repasos, planificador, progreso | hecho, sobre almacén local |
+| 2 | Lectura de fotos y PDF, banco de preguntas, practicar, cola de fallos | pendiente |
+| 3 | Banco de supuestos prácticos y su corrección | pendiente |
+| 4 | Simulacros con cronómetro sin avisos y corrección por partes | pendiente |
+| 5 | Audio de los temas, revisión de normativa, PWA y despliegue | pendiente |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Las pantallas de las fases 2 a 4 existen ya en el menú y explican qué harán y qué falta, en vez de
+aparecer vacías.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Conectar la nube (Supabase)
 
-## Deploy on Vercel
+Mientras no se haga esto, todo se guarda solo en este navegador.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Crear una cuenta en [supabase.com](https://supabase.com) y un proyecto nuevo (plan gratuito).
+2. En **Project Settings → API**, copiar `Project URL` y `anon public`.
+3. Copiar `.env.example` como `.env.local` y pegar esos dos valores.
+4. En **SQL Editor**, pegar y ejecutar el contenido de `supabase/migrations/0001_fase1.sql`.
+5. Reiniciar `npm run dev`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+La migración crea las tablas con **RLS**: cada persona solo puede leer y escribir sus propias filas.
+
+## Cómo está organizado
+
+```
+src/
+  app/
+    page.tsx            portada pública
+    (app)/              la app: temario, registro, planificador, progreso…
+  components/           piezas de interfaz (botón, ficha, etiqueta, navegación)
+  contenido/
+    temario-pt.ts       los 25 títulos oficiales y su procedencia
+  datos/
+    almacen.tsx         estado de la app, hoy sobre localStorage
+    supabase.ts         cliente de la nube cuando haya claves
+  nucleo/               lógica pura, sin React: fechas, repasos, racha
+supabase/migrations/    esquema de la base de datos
+```
+
+La regla que ordena el resto: **`src/nucleo` no sabe nada de React ni de la base de datos**, así que
+se puede probar con `npm test` y no cambia al conectar Supabase.
+
+## Decisiones que conviene no deshacer sin hablarlo
+
+- **El cronómetro de los simulacros no avisa.** Ni alertas, ni sonidos, ni hitos. Se puede ver el
+  tiempo restante, el transcurrido, solo la hora u ocultarlo. En el examen tampoco avisa nadie.
+- **La app nunca inventa contenido de un tema que no está subido.** Cada tema tiene su estado
+  (`sin_contenido`, `borrador_ia`, `parcial`, `completo`) y la franja de cobertura lo dice siempre.
+  Un borrador generado por IA se marca como tal en todas partes.
+- **Los repasos se cuentan desde el último repaso hecho**, no desde la fecha teórica, para que un
+  retraso no arrastre toda la cadena.
+- **Los supuestos salen sin etiquetas en los sorteos**, variados entre sí, como en el examen.
+
+## Datos oficiales
+
+- Temario: Orden de 9 de septiembre de 1993 (BOE 21/09/1993), restablecida por la Orden
+  ECD/191/2012. Solo fija los títulos, no el contenido. Transcritos de fuentes secundarias porque el
+  BOE publica un escaneado; ver los avisos en `src/contenido/temario-pt.ts`.
+- Examen en Andalucía (Orden de 21 de febrero de 2025): parte práctica y tema seguidos, 4 h 30 min
+  en total sin descanso, 2 temas a elegir uno, sin lectura ante el tribunal.
+- En 2026 no hubo convocatoria de Maestros en Andalucía: las plazas se aplazaron a 2027, así que la
+  cuenta atrás parte de una fecha estimada que se puede cambiar.
