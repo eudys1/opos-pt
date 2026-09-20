@@ -4,6 +4,7 @@ import { BotonEnlace } from "@/components/ui/boton";
 import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { Marca, Visto } from "@/components/marcas";
+import { SelectorTema } from "@/components/selector-tema";
 
 export const metadata: Metadata = {
   title: "Cuaderno · tu oposición, ordenada",
@@ -367,6 +368,7 @@ export default function Portada() {
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm text-apagado sm:px-8 md:flex-row md:items-center">
           <Marca className="text-base" />
           <p className="flex-1 md:ml-4">Hecho para una opositora concreta y su temario concreto.</p>
+          <SelectorTema />
           <p className="max-w-[46ch]">
             Títulos de los temas: Orden de 9 de septiembre de 1993 (BOE 21/09/1993), restablecida por
             la Orden ECD/191/2012.

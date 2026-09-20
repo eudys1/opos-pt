@@ -25,7 +25,7 @@ npm run build     # compilación de producción
 
 | Fase | Qué incluye | Estado |
 | --- | --- | --- |
-| 0 | Dirección visual «Cuaderno» y sistema de diseño | hecho |
+| 0 | Dirección visual «Cuaderno», sistema de diseño y modo oscuro | hecho |
 | 1 | Temario, registro de estudio con repasos, planificador, progreso | hecho, sobre almacén local |
 | 2 | Lectura de fotos y PDF, banco de preguntas, practicar, cola de fallos | pendiente |
 | 3 | Banco de supuestos prácticos y su corrección | pendiente |
@@ -34,6 +34,10 @@ npm run build     # compilación de producción
 
 Las pantallas de las fases 2 a 4 existen ya en el menú y explican qué harán y qué falta, en vez de
 aparecer vacías.
+
+Además está hecho: modo claro, oscuro y automático con selector; la app es instalable en el móvil
+(el funcionamiento sin conexión llega en la fase 5); y la revisión de accesibilidad con axe pasa sin
+ninguna violación en todas las páginas.
 
 ## Conectar la nube (Supabase)
 

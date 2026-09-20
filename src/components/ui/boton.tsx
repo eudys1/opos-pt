@@ -10,7 +10,7 @@ const base =
 
 const tonos: Record<Tono, string> = {
   principal:
-    "bg-tinta text-papel border border-tinta hover:bg-[#16223c] hover:border-[#16223c]",
+    "bg-tinta text-papel border border-tinta hover:bg-tinta-fuerte hover:border-tinta-fuerte",
   secundario:
     "bg-papel-alto text-tinta border border-linea hover:border-tinta hover:bg-papel-franja",
   fantasma:

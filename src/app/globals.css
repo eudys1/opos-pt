@@ -10,10 +10,12 @@
   --color-papel-alto: #fffdf7;
   --color-papel-franja: #f2ebdb;
   --color-tinta: #1b2a4a;
+  /* Tinta más apretada: el estado hover de los botones principales. */
+  --color-tinta-fuerte: #16223c;
   --color-tinta-suave: #3e4a5c;
   --color-texto: #4a4540;
-  --color-apagado: #7a7266;
-  --color-tenue: #9a9184;
+  --color-apagado: #5f594e;
+  --color-tenue: #6f6759;
   --color-linea: #e2d9c6;
   --color-linea-suave: #efe7d6;
   --color-margen: #b03a2b;
@@ -31,6 +33,55 @@
   --text-titulo: 3.875rem;
   --text-titulo--line-height: 1.02;
   --text-titulo--letter-spacing: -0.02em;
+}
+
+/*
+  Cuaderno de noche. No es un tema oscuro neutro: es el mismo cuaderno con tinta
+  clara sobre papel azulado, así que se conservan el margen rojo y el visto verde,
+  aclarados lo justo para que contrasten sobre fondo oscuro.
+  Se aplica por preferencia del sistema, salvo que la persona haya elegido claro,
+  y siempre que haya elegido oscuro a mano.
+*/
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --color-papel: #151c28;
+    --color-papel-alto: #1b2432;
+    --color-papel-franja: #121822;
+    --color-tinta: #f2eada;
+    --color-tinta-fuerte: #fdf8ee;
+    --color-tinta-suave: #cfc7b8;
+    --color-texto: #c3bcae;
+    --color-apagado: #9a9385;
+    --color-tenue: #8a8376;
+    --color-linea: #2b3547;
+    --color-linea-suave: #222b3a;
+    --color-margen: #ef8f77;
+    --color-margen-hilo: #a4594a;
+    --color-margen-fondo: #2a1f1e;
+    --color-visto: #86bd96;
+    --color-visto-fondo: #17251c;
+    color-scheme: dark;
+  }
+}
+
+:root[data-tema="oscuro"] {
+  --color-papel: #151c28;
+  --color-papel-alto: #1b2432;
+  --color-papel-franja: #121822;
+  --color-tinta: #f2eada;
+  --color-tinta-fuerte: #fdf8ee;
+  --color-tinta-suave: #cfc7b8;
+  --color-texto: #c3bcae;
+  --color-apagado: #9a9385;
+  --color-tenue: #8a8376;
+  --color-linea: #2b3547;
+  --color-linea-suave: #222b3a;
+  --color-margen: #ef8f77;
+  --color-margen-hilo: #a4594a;
+  --color-margen-fondo: #2a1f1e;
+  --color-visto: #86bd96;
+  --color-visto-fondo: #17251c;
+  color-scheme: dark;
 }
 
 /* Pauta del cuaderno: se aplica a las fichas que imitan una hoja rayada. */

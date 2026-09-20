@@ -6,7 +6,12 @@ import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { Boton } from "@/components/ui/boton";
 import { useCuaderno } from "@/datos/almacen";
-import { AVISO_LITERALIDAD, FUENTE_TEMARIO, tituloCorto } from "@/contenido/temario-pt";
+import {
+  AVISO_LITERALIDAD,
+  FUENTE_TEMARIO,
+  TEMARIO_PT,
+  tituloCorto,
+} from "@/contenido/temario-pt";
 import type { EstadoContenido } from "@/nucleo/tipos";
 
 const ETIQUETAS: Record<EstadoContenido, { texto: string; tono: "neutra" | "hecha" | "borrador" }> = {
@@ -17,7 +22,7 @@ const ETIQUETAS: Record<EstadoContenido, { texto: string; tono: "neutra" | "hech
 };
 
 export default function PaginaTemario() {
-  const { temas, guardarTexto, cargado } = useCuaderno();
+  const { temas, guardarTexto, renombrarTema, cargado } = useCuaderno();
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
 
 
@@ -80,10 +85,12 @@ export default function PaginaTemario() {
                 {estaAbierto ? (
                   <EditorTema
                     id={`panel-${tema.id}`}
+                    numero={tema.numero}
                     titulo={tema.titulo}
                     texto={tema.texto}
                     estado={tema.estadoContenido}
                     onGuardar={(texto, estado) => guardarTexto(tema.id, texto, estado)}
+                    onRenombrar={(titulo) => renombrarTema(tema.id, titulo)}
                   />
                 ) : null}
               </Ficha>
@@ -106,16 +113,20 @@ export default function PaginaTemario() {
 
 function EditorTema({
   id,
+  numero,
   titulo,
   texto,
   estado,
   onGuardar,
+  onRenombrar,
 }: {
   id: string;
+  numero: number;
   titulo: string;
   texto: string;
   estado: EstadoContenido;
   onGuardar: (texto: string, estado: EstadoContenido) => void;
+  onRenombrar: (titulo: string) => void;
 }) {
   const [borrador, setBorrador] = useState(texto);
   const [nuevoEstado, setNuevoEstado] = useState<EstadoContenido>(
@@ -124,12 +135,21 @@ function EditorTema({
   const [guardado, setGuardado] = useState(false);
 
   const palabras = borrador.trim() ? borrador.trim().split(/\s+/).length : 0;
+  const duda = TEMARIO_PT.find((t) => t.numero === numero)?.dudaLiteralidad;
 
   return (
     <div id={id} className="border-t border-linea bg-papel px-5 py-5">
-      <p className="mb-4 max-w-[80ch] text-[0.9rem] leading-relaxed text-texto">
+      <p className="mb-2 max-w-[80ch] text-[0.9rem] leading-relaxed text-texto">
         <span className="font-semibold">Enunciado oficial:</span> {titulo}
       </p>
+
+      {duda ? (
+        <p className="mb-3 max-w-[80ch] rounded-pliegue border border-margen-hilo bg-margen-fondo px-3 py-2 text-[0.85rem] leading-relaxed text-tinta">
+          <span className="font-semibold">Ojo a la transcripción:</span> {duda}
+        </p>
+      ) : null}
+
+      <EditorTitulo id={id} titulo={titulo} onRenombrar={onRenombrar} />
 
       <label htmlFor={`${id}-texto`} className="block text-[0.9rem] font-semibold text-tinta">
         Tu tema
@@ -191,6 +211,59 @@ function EditorTema({
   );
 }
 
+/** El enunciado se puede corregir: la transcripción del BOE no siempre es literal. */
+function EditorTitulo({
+  id,
+  titulo,
+  onRenombrar,
+}: {
+  id: string;
+  titulo: string;
+  onRenombrar: (titulo: string) => void;
+}) {
+  const [valor, setValor] = useState(titulo);
+  const [hecho, setHecho] = useState(false);
+
+  return (
+    <details className="mb-5 max-w-[80ch]">
+      <summary className="regla inline-block cursor-pointer text-[0.85rem] text-texto">
+        Corregir el enunciado
+      </summary>
+      <div className="mt-2">
+        <label htmlFor={`${id}-titulo`} className="block text-[0.85rem] text-apagado">
+          Si tu temario lo dice de otra forma, manda el tuyo.
+        </label>
+        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+          <textarea
+            id={`${id}-titulo`}
+            value={valor}
+            rows={2}
+            onChange={(e) => {
+              setValor(e.target.value);
+              setHecho(false);
+            }}
+            className="flex-1 rounded-pliegue border border-linea bg-papel-alto px-3 py-2 text-[0.9rem] leading-relaxed"
+          />
+          <Boton
+            tono="secundario"
+            onClick={() => {
+              const limpio = valor.trim();
+              if (!limpio) return;
+              onRenombrar(limpio);
+              setHecho(true);
+            }}
+          >
+            Guardar enunciado
+          </Boton>
+        </div>
+        <span aria-live="polite" className="mt-1 block text-[0.85rem] text-visto">
+          {hecho ? "Enunciado actualizado." : ""}
+        </span>
+      </div>
+    </details>
+  );
+}
+
 function Opcion({
   id,
   name,
@@ -214,7 +287,7 @@ function Opcion({
         name={name}
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 accent-[#1b2a4a]"
+        className="h-4 w-4 accent-[color:var(--color-tinta)]"
       />
       <span className="text-[0.95rem] text-tinta">
         {texto} <span className="text-apagado">· {ayuda}</span>

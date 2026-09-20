@@ -63,7 +63,7 @@ export default function PaginaRegistro() {
             type="checkbox"
             checked={soloPendientes}
             onChange={(e) => setSoloPendientes(e.target.checked)}
-            className="h-4 w-4 accent-[#b03a2b]"
+            className="h-4 w-4 accent-[color:var(--color-margen)]"
           />
           Ver solo lo que toca
         </label>
