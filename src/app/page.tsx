@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import clsx from "clsx";
 import { BotonEnlace } from "@/components/ui/boton";
 import { Ficha } from "@/components/ui/ficha";
-import { Etiqueta } from "@/components/ui/etiqueta";
-import { Marca, Visto } from "@/components/marcas";
+import { Marca } from "@/components/marcas";
 import { SelectorTema } from "@/components/selector-tema";
+import { SECCIONES } from "@/components/ui/secciones";
+import type { TipoActividad } from "@/nucleo/tipos";
+import { RelojMuestra } from "@/components/reloj-muestra";
 
 export const metadata: Metadata = {
   title: "Cuaderno · tu oposición, ordenada",
@@ -12,363 +15,366 @@ export const metadata: Metadata = {
     "Sube tu temario en fotos o PDF y Cuaderno lleva el registro de lo que estudias, te avisa de cada repaso, te pregunta, guarda tus fallos y te pone simulacros con el reloj del examen real.",
 };
 
-const pasos = [
+/*
+  Portada con la estructura de la dirección B: título grande a la izquierda con
+  sus dos botones, y a la derecha lo más característico de la app (lo que toca
+  hoy y el camino de los 25 temas). Debajo, los pasos en tarjetas de color.
+  Los datos del ejemplo son de muestra: la portada es pública.
+*/
+
+const pasos: { color: TipoActividad; titulo: string; texto: string }[] = [
   {
-    n: "01",
+    color: "temario",
     titulo: "Subes lo que tengas",
     texto:
-      "Fotos de tus folios, el PDF del temario o texto escrito en la app. Vale con dos temas: Cuaderno sabe qué tiene y qué le falta, y lo dice.",
+      "Fotos de tus folios, el PDF del temario o texto escrito en la app. Vale con dos temas: sabe qué tiene y qué le falta, y lo dice.",
   },
   {
-    n: "02",
-    titulo: "Estudias y repasas a tiempo",
+    color: "repaso",
+    titulo: "Repasas a tiempo",
     texto:
-      "Marcas un tema como estudiado y quedan fijados el repaso 1, el 2 y el 3. Cada mañana ves lo que toca hoy y lo que llevas con retraso.",
+      "Marcas un tema como estudiado y quedan fijados sus repasos. Cada día ves lo que toca y lo que llevas con retraso.",
   },
   {
-    n: "03",
+    color: "practica",
     titulo: "Te pones a prueba",
     texto:
-      "Tests, preguntas cortas y flashcards salidas de tus propios apuntes, incluidas las de legislación: te sale la norma y la completas tú.",
+      "Preguntas de tus propios apuntes. La legislación, de memoria y tal cual: se coteja con tu tema palabra a palabra.",
   },
   {
-    n: "04",
+    color: "simulacro",
     titulo: "Escribes contra el reloj",
     texto:
-      "Dos temas a elegir uno, tres supuestos a elegir uno, o el examen completo de 4 h 30 min. En pantalla o en papel con una foto.",
+      "Dos temas a elegir uno, tres supuestos a elegir uno o el examen completo de 4 h 30 min, sin repetir hasta hacerlos todos.",
   },
 ];
 
-const apartados = [
+const apartados: { color: TipoActividad; titulo: string; texto: string }[] = [
   {
+    color: "repaso",
     titulo: "Registro de estudio",
     texto:
-      "La tabla de siempre, pero viva: temas en filas, repasos en columnas y la fecha de cada marca. Con contador de vueltas al temario.",
+      "Temas en filas, repasos en columnas. Cada casilla se marca con su día, se cambia o se desmarca, y el planificador lo ve al momento.",
   },
   {
-    titulo: "Repaso de fallos",
-    texto:
-      "Lo que fallas se guarda solo y vuelve días después, y otra vez más tarde. Se da por superado tras tres aciertos seguidos.",
-  },
-  {
-    titulo: "Supuestos prácticos",
-    texto:
-      "Los tuyos, los que genera la app desde tu temario y los que compartan otras personas. Con corrección y respuesta modelo.",
-  },
-  {
+    color: "otro",
     titulo: "Planificador",
     texto:
-      "Calendario semanal y mensual donde apuntas los objetivos del día y marcas al acabar lo cumplido y lo que se queda para mañana.",
+      "Semana o mes, cada cosa del color de su tipo. Los repasos que tocan aparecen solos y los puedes mover a otro día.",
   },
   {
-    titulo: "Mi progreso",
+    color: "practica",
+    titulo: "Repaso de fallos",
     texto:
-      "Cuenta atrás hasta el examen, racha de días, mapa de colores del temario y gráficas de repasos, aciertos y notas de simulacro.",
+      "Lo que fallas vuelve días después, preguntado de otra forma. Eliges qué repasar: todo, un tema o un tipo de pregunta.",
   },
   {
+    color: "supuesto",
+    titulo: "Supuestos prácticos",
+    texto:
+      "Los de tu academia, con su resolución, o los que escribe la app desde tus temas. Se corrige si pones lo que trae la resolución.",
+  },
+  {
+    color: "temario",
+    titulo: "Normativa",
+    texto:
+      "Todas las leyes de tus temas en un solo documento, cada una una vez y tal cual la tienes escrita.",
+  },
+  {
+    color: "simulacro",
     titulo: "Escuchar los temas",
     texto:
-      "Tus temas en audio para el coche o el paseo, con la voz del móvil o una voz natural generada para los que más escuches.",
+      "Con voz natural para el coche o el paseo, o grabándote mientras lo cantas, que es la mejor forma de saber si te lo sabes.",
   },
 ];
 
 const preguntas = [
   {
     p: "¿Necesito tener el temario entero para empezar?",
-    r: "No. Puedes subir dos temas, o media parte de uno. Cada tema lleva su estado —completo, parcial, borrador o sin contenido— y la app solo trabaja con lo que existe. Si pides algo de un tema que no has subido, te lo dice en vez de inventárselo.",
+    r: "No. Puedes subir dos temas, o media parte de uno. Cada tema lleva su estado y la app solo trabaja con lo que existe. Si pides algo de un tema que no has subido, te lo dice en vez de inventárselo.",
   },
   {
     p: "¿Puedo escribir los simulacros en papel?",
-    r: "Sí, y es lo recomendable si en el examen vas a escribir a mano. Redactas en papel con el cronómetro en marcha, haces fotos al terminar y la app pasa tu letra a texto. Revisas la transcripción y solo entonces se corrige.",
+    r: "Sí, y es lo recomendable si en el examen vas a escribir a mano. Redactas en papel con el reloj en marcha, haces fotos al terminar y la app pasa tu letra a texto antes de corregir.",
   },
   {
-    p: "¿El cronómetro avisa de cuánto queda?",
-    r: "No, a propósito. Ni alertas, ni sonidos, ni mensajes de ánimo. Puedes ver el tiempo restante, el transcurrido, solo la hora o esconderlo del todo, pero nadie te va a interrumpir: en el examen tampoco lo harán.",
+    p: "¿El reloj avisa de cuánto queda?",
+    r: "No, a propósito. Ni alertas, ni sonidos. Puedes ver el tiempo restante, el transcurrido, solo la hora o esconderlo. El simulacro flexible se puede pausar; el real, no.",
   },
   {
     p: "¿De dónde salen las preguntas?",
-    r: "De tu temario, no de uno genérico. Cada pregunta guarda de qué parte de tus apuntes salió, para que puedas comprobarla. Los títulos de los 25 temas sí son los oficiales del Cuerpo de Maestros.",
+    r: "De tu temario, no de uno genérico. Cada pregunta guarda de qué frase de tus apuntes salió, para que puedas comprobarla.",
   },
+];
+
+// Muestra para el ejemplo: estudiados en violeta, con la vuelta completa en verde.
+const MUESTRA_DOMINADOS = [1, 2];
+const MUESTRA_ESTUDIADOS = [3, 4, 5, 7, 10, 12];
+const MUESTRA_SUBIDOS = [6, 8, 9, 15, 19];
+
+const MUESTRA_HOY: { texto: string; color: TipoActividad; tarde?: boolean }[] = [
+  { texto: "Repaso 2 · tema 3", color: "repaso", tarde: true },
+  { texto: "Repaso 1 · tema 7", color: "repaso" },
+  { texto: "Un supuesto de TEA", color: "supuesto" },
+  { texto: "4 fallos", color: "practica" },
 ];
 
 export default function Portada() {
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-linea bg-papel/90 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-4 sm:px-8">
-          <Link href="/" className="rounded-pliegue">
-            <Marca />
+      <header className="sticky top-0 z-40 border-b-[3px] border-borde bg-papel/95 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:gap-4 sm:px-8">
+          <Link href="/" className="shrink-0 rounded-pliegue">
+            <Marca className="text-[1.3rem] sm:text-[1.5rem]" />
             <span className="sr-only">Inicio</span>
           </Link>
-          <nav aria-label="Principal" className="ml-4 hidden flex-1 gap-7 md:flex">
-            <a href="#como-funciona" className="regla text-[0.95rem] text-texto">
-              Cómo funciona
-            </a>
-            <a href="#apartados" className="regla text-[0.95rem] text-texto">
-              Qué incluye
-            </a>
-            <a href="#simulacros" className="regla text-[0.95rem] text-texto">
-              Simulacros
-            </a>
-            <a href="#preguntas" className="regla text-[0.95rem] text-texto">
-              Dudas
-            </a>
+          <nav aria-label="Principal" className="ml-3 hidden flex-1 gap-6 md:flex">
+            {[
+              ["#como-funciona", "Cómo va"],
+              ["#apartados", "Secciones"],
+              ["#preguntas", "Dudas"],
+            ].map(([href, texto]) => (
+              <a key={href} href={href} className="regla text-[0.95rem] font-bold text-apagado">
+                {texto}
+              </a>
+            ))}
           </nav>
-          <div className="ml-auto flex items-center gap-3 md:ml-0">
-            <Link href="/entrar" className="regla hidden text-[0.95rem] text-texto sm:inline">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2 md:ml-0">
+            <SelectorTema />
+            <Link href="/entrar" className="regla inline-flex min-h-11 items-center px-2 text-[0.95rem] font-bold text-tinta sm:text-apagado">
               Entrar
             </Link>
-            <BotonEnlace href="/entrar">Abrir mi cuaderno</BotonEnlace>
+            {/* En móvil no cabe: crear cuenta es el botón grande del héroe, justo debajo. */}
+            <span className="hidden sm:block">
+              <BotonEnlace href="/crear-cuenta" className="whitespace-nowrap">
+                Crear cuenta
+              </BotonEnlace>
+            </span>
           </div>
         </div>
       </header>
 
       <main id="contenido" className="flex-1">
-        {/* Hoja con margen: el hilo rojo recorre la portada en pantallas anchas. */}
-        <section className="relative overflow-hidden border-b border-linea">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-[72px] hidden w-px bg-margen-hilo lg:block"
-          />
-          <div className="mx-auto grid max-w-6xl gap-12 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:gap-16 lg:py-20 lg:pl-28">
-            <div className="entra flex flex-col gap-6">
-              <p className="text-[0.78rem] font-bold uppercase tracking-[0.16em] text-margen">
-                Cuerpo de Maestros · Pedagogía Terapéutica
-              </p>
-              <h1 className="max-w-[18ch] text-[2.6rem] leading-[1.03] tracking-[-0.02em] sm:text-[3.4rem] lg:text-titulo">
-                Tus apuntes, ordenados como se estudia de verdad.
-              </h1>
-              <p className="max-w-[52ch] text-lg leading-relaxed text-tinta-suave">
-                Subes tu temario en fotos o en PDF. A partir de ahí, Cuaderno lleva la cuenta de lo
-                que has estudiado, te avisa de cuándo toca cada repaso, te pregunta, guarda tus
-                fallos y te pone exámenes con el reloj del día real.
-              </p>
-              <div className="flex flex-wrap items-center gap-4">
-                <BotonEnlace href="/entrar" tamano="grande">
-                  Empezar con mis temas
-                </BotonEnlace>
-                <a href="#como-funciona" className="regla text-[1.02rem] text-tinta">
-                  Ver cómo funciona
-                </a>
-              </div>
-              <p className="max-w-[54ch] text-sm leading-relaxed text-apagado">
-                No hace falta tener el temario entero. Con dos temas ya se puede empezar: el cuaderno
-                sabe qué tiene y qué no, y nunca se inventa lo que le falta.
-              </p>
+        <section className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-12 lg:py-16">
+          <div className="escalona flex flex-col gap-5 lg:pt-4">
+            <h1 className="text-[2.7rem] leading-[1.05] sm:text-[3.3rem] lg:text-titulo">
+              Estudiar 25 temas sin perder el hilo.
+            </h1>
+            <p className="max-w-[48ch] text-[1.12rem] leading-relaxed text-apagado">
+              Cada día te dice qué toca, te lo pregunta con tus propios apuntes y te apunta lo que
+              fallas. Y va guardando lo que llevas hecho, que en dos años de oposición se agradece.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <BotonEnlace href="/crear-cuenta" tamano="grande">
+                Subir mi primer tema
+              </BotonEnlace>
+              <a
+                href="#como-funciona"
+                className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-sec-temario-fondo px-6 text-[1rem] font-extrabold text-sec-temario transition-[filter] hover:brightness-95"
+              >
+                Ver cómo funciona
+                <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-y-0.5">
+                  ↓
+                </span>
+              </a>
             </div>
+            <ul className="escalona mt-2 grid grid-cols-3 gap-2.5">
+              {[
+                ["25", "temas del temario oficial", "border-sec-temario-vivo"],
+                ["4 h 30", "el examen completo", "border-sec-simulacro-vivo"],
+                ["3", "formas de meter tus temas", "border-sec-practica-vivo"],
+              ].map(([dato, texto, borde]) => (
+                <li key={texto} className={clsx("levanta rounded-[16px] border-2 bg-papel-alto px-3 py-3 text-center", borde)}>
+                  <span className="block font-display text-[1.4rem] font-bold leading-none" data-numerico>
+                    {dato}
+                  </span>
+                  <span className="mt-1 block text-[0.75rem] font-bold text-apagado">{texto}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-            <div className="entra flex flex-col gap-4 [animation-delay:120ms]">
-              <Ficha rayada className="px-6 py-6">
-                <div className="mb-4 flex items-baseline gap-3">
-                  <h2 className="font-display text-xl">Esta semana</h2>
-                  <span className="text-sm text-apagado">3 repasos pendientes</span>
+          <div className="entra flex flex-col gap-4 [animation-delay:160ms]">
+            <Ficha destacada className="flex flex-col gap-4 px-5 py-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-acento-vivo font-display text-[1.4rem] font-bold text-sobre-boton">
+                  18
+                </span>
+                <div>
+                  <p className="font-display text-[1.2rem] font-semibold">¡18 días seguidos!</p>
+                  <p className="text-[0.85rem] text-apagado">Te quedan 2 días libres este mes</p>
                 </div>
-                <table className="w-full border-collapse text-sm">
-                  <caption className="pb-2 text-left text-[0.8rem] text-apagado">
-                    Registro de estudio, temas 1 a 4
-                  </caption>
-                  <thead>
-                    <tr className="text-[0.7rem] uppercase tracking-[0.06em] text-apagado">
-                      <th scope="col" className="py-1.5 text-left font-semibold">
-                        Tema
-                      </th>
-                      <th scope="col" className="w-14 py-1.5 font-semibold">
-                        Est.
-                      </th>
-                      <th scope="col" className="w-14 py-1.5 font-semibold">
-                        R1
-                      </th>
-                      <th scope="col" className="w-14 py-1.5 font-semibold">
-                        R2
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <FilaDemo tema="1. Necesidades específicas de apoyo educativo" est r1 r2="hoy" />
-                    <FilaDemo tema="2. La evaluación psicopedagógica" est r1="hoy" />
-                    <FilaDemo tema="3. Discapacidad intelectual: respuesta educativa" est />
-                    <FilaDemo tema="4. Trastorno del espectro autista" pendiente />
-                  </tbody>
-                </table>
-              </Ficha>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Ficha className="px-5 py-4">
-                  <p className="font-display text-[2rem] leading-none" data-numerico>
-                    25
-                  </p>
-                  <p className="mt-1 text-sm text-apagado">temas del temario oficial de PT</p>
-                </Ficha>
-                <Ficha className="px-5 py-4">
-                  <p className="font-display text-[2rem] leading-none" data-numerico>
-                    4 h 30
-                  </p>
-                  <p className="mt-1 text-sm text-apagado">el simulacro completo, sin descanso</p>
-                </Ficha>
               </div>
+              <div>
+                <p className="mb-2 text-[0.85rem] font-extrabold text-tinta">Hoy toca</p>
+                <ul className="escalona flex flex-wrap gap-1.5">
+                  {MUESTRA_HOY.map((h) => (
+                    <li
+                      key={h.texto}
+                      className={clsx(
+                        "rounded-full border-2 px-3 py-1 text-[0.8rem] font-extrabold",
+                        SECCIONES[h.color].fondo,
+                        SECCIONES[h.color].texto,
+                        h.tarde ? "border-margen" : "border-transparent",
+                      )}
+                    >
+                      {h.texto}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </Ficha>
+
+            <div className="rounded-ficha border-[3px] border-borde bg-sec-temario-fondo px-5 py-4">
+              <p className="font-display text-[1.1rem] font-semibold text-sec-temario">El camino del temario</p>
+              <ol className="mt-3 flex flex-wrap gap-2" aria-label="Ejemplo: estado de cada tema">
+                {Array.from({ length: 25 }, (_, i) => {
+                  const n = i + 1;
+                  const dominado = MUESTRA_DOMINADOS.includes(n);
+                  const estudiado = MUESTRA_ESTUDIADOS.includes(n);
+                  const subido = MUESTRA_SUBIDOS.includes(n);
+                  return (
+                    <li
+                      key={n}
+                      style={{ "--i": i } as React.CSSProperties}
+                      className={clsx(
+                        "punto flex h-9 w-9 items-center justify-center rounded-full border-2 text-[0.78rem] font-extrabold",
+                        dominado
+                          ? "border-borde bg-visto-vivo text-sobre-boton"
+                          : estudiado
+                            ? "border-borde bg-sec-temario-vivo text-white"
+                            : subido
+                              ? "border-sec-temario-vivo bg-papel-alto text-sec-temario"
+                              : "border-linea bg-papel-alto text-tenue",
+                      )}
+                      data-numerico
+                    >
+                      {n}
+                    </li>
+                  );
+                })}
+              </ol>
+              <p className="mt-3 text-[0.8rem] font-bold text-sec-temario">
+                8 estudiados · 2 con la vuelta completa · 5 subidos sin estudiar
+              </p>
             </div>
           </div>
         </section>
 
-        <section id="como-funciona" className="scroll-mt-20 border-b border-linea">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
-            <div className="max-w-[46ch]">
-              <h2 className="text-[2rem] sm:text-[2.4rem]">Cómo funciona</h2>
-              <p className="mt-3 text-lg leading-relaxed text-tinta-suave">
-                Cuatro pasos, y los tres últimos se repiten hasta el día del examen.
-              </p>
-            </div>
-            <ol className="mt-10 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+        <section id="como-funciona" className="scroll-mt-20">
+          <div className="mx-auto max-w-6xl px-5 pb-14 sm:px-8">
+            <h2 className="revela text-[1.9rem] sm:text-[2.2rem]">Cómo va</h2>
+            <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {pasos.map((paso) => (
-                <li key={paso.n} className="border-t border-linea pt-5">
-                  <span className="font-display text-sm font-semibold text-margen">{paso.n}</span>
-                  <h3 className="mt-2 text-xl">{paso.titulo}</h3>
-                  <p className="mt-2 text-[0.97rem] leading-relaxed text-texto">{paso.texto}</p>
+                <li key={paso.titulo} className={clsx("revela rounded-[20px] px-5 py-4", SECCIONES[paso.color].fondo)}>
+                  <h3 className={clsx("text-[1.1rem]", SECCIONES[paso.color].texto)}>{paso.titulo}</h3>
+                  <p className="mt-1.5 text-[0.93rem] leading-relaxed text-texto">{paso.texto}</p>
                 </li>
               ))}
             </ol>
           </div>
         </section>
 
-        <section id="apartados" className="scroll-mt-20 border-b border-linea bg-papel-franja">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
-            <div className="max-w-[48ch]">
-              <h2 className="text-[2rem] sm:text-[2.4rem]">Qué hay dentro</h2>
-              <p className="mt-3 text-lg leading-relaxed text-tinta-suave">
-                Seis apartados que se alimentan del mismo sitio: tu temario. Lo que haces en uno se
-                nota en los demás.
-              </p>
-            </div>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <section id="apartados" className="scroll-mt-20 border-y-[3px] border-borde bg-papel-franja">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
+            <h2 className="revela text-[1.9rem] sm:text-[2.2rem]">Qué hay dentro</h2>
+            <p className="mt-2 max-w-[56ch] text-[1.05rem] leading-relaxed text-apagado">
+              Todo sale del mismo sitio, tu temario, y cada sección tiene su color en toda la app.
+            </p>
+            <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {apartados.map((a) => (
-                <Ficha key={a.titulo} className="flex flex-col gap-2 px-6 py-6">
-                  <h3 className="text-xl">{a.titulo}</h3>
-                  <p className="text-[0.97rem] leading-relaxed text-texto">{a.texto}</p>
-                </Ficha>
+                <div key={a.titulo} className="revela">
+                  <Ficha className="levanta group flex h-full gap-3 px-5 py-5">
+                    <span
+                      aria-hidden="true"
+                      className={clsx(
+                        "h-10 w-10 shrink-0 rounded-[12px] transition-transform duration-300 group-hover:rotate-[-8deg] group-hover:scale-110",
+                        SECCIONES[a.color].lleno,
+                      )}
+                    />
+                    <div>
+                      <h3 className="text-[1.15rem]">{a.titulo}</h3>
+                      <p className="mt-1 text-[0.93rem] leading-relaxed text-texto">{a.texto}</p>
+                    </div>
+                  </Ficha>
+                </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="simulacros" className="scroll-mt-20 border-b border-linea">
-          <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:gap-16">
-            <div>
-              <h2 className="text-[2rem] sm:text-[2.4rem]">El día del examen, ensayado</h2>
-              <p className="mt-3 max-w-[54ch] text-lg leading-relaxed text-tinta-suave">
-                En Andalucía la parte práctica y el tema se hacen seguidos, en cuatro horas y media
-                sin descanso, y eres tú quien reparte el tiempo. Cuaderno lo reproduce tal cual.
-              </p>
-              <div className="mt-8 overflow-x-auto">
-                <table className="w-full min-w-[36rem] border-collapse text-left text-[0.97rem]">
-                  <caption className="sr-only">Modalidades de simulacro y su duración</caption>
-                  <thead>
-                    <tr className="border-y border-linea text-[0.72rem] uppercase tracking-[0.07em] text-apagado">
-                      <th scope="col" className="py-3 pr-4 font-semibold">
-                        Modalidad
-                      </th>
-                      <th scope="col" className="py-3 pr-4 font-semibold">
-                        Qué te sale
-                      </th>
-                      <th scope="col" className="py-3 font-semibold">
-                        Tiempo
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-linea-suave">
-                      <th scope="row" className="py-3 pr-4 font-semibold">
-                        Solo tema
-                      </th>
-                      <td className="py-3 pr-4 text-texto">2 temas al azar, eliges 1</td>
-                      <td className="py-3" data-numerico>
-                        2 h 15 min
-                      </td>
-                    </tr>
-                    <tr className="border-b border-linea-suave">
-                      <th scope="row" className="py-3 pr-4 font-semibold">
-                        Solo supuesto
-                      </th>
-                      <td className="py-3 pr-4 text-texto">3 supuestos variados, eliges 1</td>
-                      <td className="py-3" data-numerico>
-                        2 h 15 min
-                      </td>
-                    </tr>
-                    <tr>
-                      <th scope="row" className="py-3 pr-4 font-semibold">
-                        Examen completo
-                      </th>
-                      <td className="py-3 pr-4 text-texto">
-                        2 temas y 3 supuestos, eliges uno de cada
-                      </td>
-                      <td className="py-3" data-numerico>
-                        4 h 30 min
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <Ficha className="flex flex-col gap-4 self-start px-6 py-6">
-              <p className="text-[0.72rem] font-bold uppercase tracking-[0.14em] text-apagado">
-                Tiempo restante
-              </p>
-              <p
-                className="font-display text-[3.2rem] leading-none tracking-[-0.03em]"
-                data-numerico
-              >
-                2:18:42
-              </p>
-              <p className="text-[0.95rem] leading-relaxed text-texto">
-                No habrá ningún aviso antes de que acabe, igual que en el examen. Si cierras la
-                página o se apaga el móvil, el reloj sigue corriendo.
-              </p>
-              <div className="flex flex-wrap gap-2 border-t border-linea-suave pt-4">
-                <Etiqueta>Restante</Etiqueta>
-                <Etiqueta>Transcurrido</Etiqueta>
-                <Etiqueta>Solo la hora</Etiqueta>
-                <Etiqueta>Oculto</Etiqueta>
-              </div>
-            </Ficha>
+        <section className="mx-auto grid max-w-6xl gap-8 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-12">
+          <div>
+            <h2 className="revela text-[1.9rem] sm:text-[2.2rem]">El día del examen, ensayado</h2>
+            <p className="mt-3 max-w-[54ch] text-[1.05rem] leading-relaxed text-apagado">
+              En Andalucía el supuesto y el tema se hacen seguidos, en cuatro horas y media sin
+              descanso, y tú repartes el tiempo. Aquí igual, sin repetir temas hasta hacerlos todos.
+            </p>
+            <ul className="mt-6 flex flex-col gap-2.5">
+              {[
+                ["Solo tema", "2 temas al azar, eliges 1", "2 h 15 min"],
+                ["Solo supuesto", "3 supuestos variados, eliges 1", "2 h 15 min"],
+                ["Examen completo", "2 temas y 3 supuestos, uno de cada", "4 h 30 min"],
+              ].map(([nombre, que, tiempo]) => (
+                <li
+                  key={nombre}
+                  className="revela flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[16px] border-2 border-borde bg-papel-alto px-4 py-3"
+                >
+                  <span className="font-extrabold">{nombre}</span>
+                  <span className="flex-1 text-[0.93rem] text-apagado">{que}</span>
+                  <span className="font-display text-[1.1rem] font-semibold text-sec-simulacro" data-numerico>
+                    {tiempo}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
+
+          <Ficha destacada className="revela flex flex-col gap-3 self-start bg-sec-simulacro-fondo px-6 py-6">
+            <p className="text-[0.9rem] font-bold text-sec-simulacro">Tiempo restante</p>
+            <p className="font-display text-[3.2rem] font-bold leading-none text-sec-simulacro" data-numerico>
+              <RelojMuestra />
+            </p>
+            <p className="text-[0.95rem] leading-relaxed text-texto">
+              Sin ningún aviso antes de que acabe, igual que en el examen. En el real, si cierras la
+              página, el reloj sigue corriendo.
+            </p>
+          </Ficha>
         </section>
 
-        <section id="preguntas" className="scroll-mt-20 border-b border-linea">
-          <div className="mx-auto max-w-3xl px-5 py-16 sm:px-8">
-            <h2 className="text-[2rem] sm:text-[2.4rem]">Dudas razonables</h2>
-            <dl className="mt-8 divide-y divide-linea border-y border-linea">
+        <section id="preguntas" className="scroll-mt-20 border-t-[3px] border-borde">
+          <div className="mx-auto max-w-3xl px-5 py-14 sm:px-8">
+            <h2 className="revela text-[1.9rem] sm:text-[2.2rem]">Dudas razonables</h2>
+            <dl className="mt-6 flex flex-col gap-3">
               {preguntas.map((q) => (
-                <div key={q.p} className="py-5">
-                  <dt className="font-display text-xl">{q.p}</dt>
-                  <dd className="mt-2 text-[0.99rem] leading-relaxed text-texto">{q.r}</dd>
+                <div key={q.p} className="revela rounded-[18px] border-2 border-linea bg-papel-alto px-5 py-4">
+                  <dt className="font-display text-[1.15rem] font-semibold">{q.p}</dt>
+                  <dd className="mt-1.5 text-[0.97rem] leading-relaxed text-texto">{q.r}</dd>
                 </div>
               ))}
             </dl>
           </div>
         </section>
 
-        <section className="border-b border-linea bg-papel-franja">
-          <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-5 py-16 sm:px-8 lg:flex-row lg:items-center">
+        <section className="border-t-[3px] border-borde bg-acento-fondo">
+          <div className="revela mx-auto flex max-w-6xl flex-col items-start gap-5 px-5 py-12 sm:px-8 lg:flex-row lg:items-center">
             <div className="flex-1">
-              <h2 className="text-[1.9rem] sm:text-[2.2rem]">
-                Empieza por el tema que tengas más a mano
-              </h2>
-              <p className="mt-3 max-w-[56ch] text-lg leading-relaxed text-tinta-suave">
+              <h2 className="text-[1.8rem] sm:text-[2.1rem]">Empieza por el tema que tengas más a mano</h2>
+              <p className="mt-2 max-w-[56ch] text-[1.05rem] leading-relaxed text-apagado">
                 Se tarda menos en subir un tema que en decidir por dónde empezar.
               </p>
             </div>
-            <BotonEnlace href="/entrar" tamano="grande">
-              Abrir mi cuaderno
+            <BotonEnlace href="/crear-cuenta" tamano="grande">
+              Subir mi primer tema
             </BotonEnlace>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-linea">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-8 text-sm text-apagado sm:px-8 md:flex-row md:items-center">
+      <footer className="border-t-[3px] border-borde">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 py-7 text-sm text-apagado sm:px-8 md:flex-row md:items-center">
           <Marca className="text-base" />
           <p className="flex-1 md:ml-4">Hecho para una opositora concreta y su temario concreto.</p>
-          <SelectorTema />
           <p className="max-w-[46ch]">
             Títulos de los temas: Orden de 9 de septiembre de 1993 (BOE 21/09/1993), restablecida por
             la Orden ECD/191/2012.
@@ -376,50 +382,5 @@ export default function Portada() {
         </div>
       </footer>
     </>
-  );
-}
-
-function FilaDemo({
-  tema,
-  est,
-  r1,
-  r2,
-  pendiente,
-}: {
-  tema: string;
-  est?: boolean;
-  r1?: boolean | string;
-  r2?: boolean | string;
-  pendiente?: boolean;
-}) {
-  return (
-    <tr>
-      <td className={pendiente ? "border-t border-linea-suave py-2.5 text-tenue" : "border-t border-linea-suave py-2.5"}>
-        {tema}
-        {pendiente ? <Etiqueta className="ml-2 align-middle">sin subir</Etiqueta> : null}
-      </td>
-      <Celda valor={est} />
-      <Celda valor={r1} />
-      <Celda valor={r2} />
-    </tr>
-  );
-}
-
-function Celda({ valor }: { valor?: boolean | string }) {
-  return (
-    <td className="border-t border-linea-suave text-center">
-      {valor === true ? (
-        <span className="inline-flex justify-center">
-          <Visto />
-          <span className="sr-only">hecho</span>
-        </span>
-      ) : typeof valor === "string" ? (
-        <span className="font-semibold text-margen">{valor}</span>
-      ) : (
-        <span className="text-linea" aria-label="aún no toca">
-          —
-        </span>
-      )}
-    </td>
   );
 }

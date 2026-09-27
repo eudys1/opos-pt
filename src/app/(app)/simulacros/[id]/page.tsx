@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
 import { Ficha } from "@/components/ui/ficha";
@@ -9,6 +10,7 @@ import { Etiqueta } from "@/components/ui/etiqueta";
 import { Cronometro, type ModoReloj } from "@/components/cronometro";
 import { CorreccionDetallada } from "@/components/correccion-detallada";
 import { EntregaEnPapel } from "@/components/entrega-en-papel";
+import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { useSesion } from "@/datos/sesion";
 import { CRITERIOS_TEMA } from "@/ia/corregir-tema";
 import type { CorreccionSupuesto } from "@/ia/supuestos";
@@ -43,11 +45,18 @@ type Simulacro = {
   estado: "en_curso" | "entregado" | "corregido" | "abandonado";
   trampa: boolean;
   nota: number | null;
+  reloj?: "real" | "flexible";
+  pausado_en?: string | null;
+  pausado_total_s?: number;
+  pausas?: number;
 };
 
 export default function SalaDeExamen({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const { usuario, cliente } = useSesion();
+  const [confirmarAbandono, setConfirmarAbandono] = useState(false);
+  const [cambiandoReloj, setCambiandoReloj] = useState(false);
 
   const [simulacro, setSimulacro] = useState<Simulacro | null>(null);
   const [partes, setPartes] = useState<Parte[]>([]);
@@ -56,7 +65,10 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
   const [modo, setModo] = useState<ModoReloj>("restante");
   const [textos, setTextos] = useState<Record<string, string>>({});
   const [entregando, setEntregando] = useState(false);
-  const [paso, setPaso] = useState("");
+  const [pasosEntrega, setPasosEntrega] = useState<{ lista: string[]; actual: number }>({
+    lista: [],
+    actual: 0,
+  });
   // Cada parte se entrega escrita aquí o con fotos del papel.
   const [modoEntrega, setModoEntrega] = useState<Record<string, "pantalla" | "papel">>({});
   const [fotos, setFotos] = useState<Record<string, string[]>>({});
@@ -147,9 +159,54 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
    * se corrige una parte por petición. Cada paso cabe en el límite de tiempo
    * del servidor, y mientras tanto se ve por dónde va.
    */
+  /** Pausar, reanudar o abandonar: lo decide el servidor, con su hora. */
+  async function accionReloj(accion: "pausar" | "reanudar" | "abandonar") {
+    setCambiandoReloj(true);
+    setError("");
+    try {
+      const r = await fetch("/api/simulacro/reloj", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, accion }),
+      });
+      const datos = await r.json();
+      if (!r.ok) throw new Error(datos.error ?? "No se ha podido.");
+      if (accion === "abandonar") {
+        try {
+          window.localStorage.removeItem(claveBorrador);
+        } catch {
+          // Sin borrador que limpiar.
+        }
+        router.push("/simulacros");
+        return;
+      }
+      setVersion((v) => v + 1);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se ha podido.");
+    } finally {
+      setCambiandoReloj(false);
+    }
+  }
+
   async function entregar() {
+    if (listasParaEntregar.length === 0) {
+      setError(
+        "Todavía no hay nada que entregar: escribe tu desarrollo (al menos 100 caracteres) o sube las fotos de tus hojas.",
+      );
+      return;
+    }
     setEntregando(true);
     setError("");
+    // Los pasos se conocen de antemano: leer las hojas y corregir cada parte.
+    const elegidas = partes.filter((p) => p.elegido_id);
+    const lista = elegidas.flatMap((parte) => {
+      const hojas = modoEntrega[parte.id] === "papel" ? (fotos[parte.id] ?? []).length : 0;
+      const lecturas = Array.from({ length: Math.ceil(hojas / 2) }, () => "leyendo tus hojas");
+      return [...lecturas, parte.tipo === "tema" ? "corrigiendo el tema" : "corrigiendo el supuesto"];
+    });
+    let hecho = 0;
+    const avanzar = () => setPasosEntrega({ lista, actual: hecho++ });
+    setPasosEntrega({ lista, actual: 0 });
     try {
       for (const parte of partes.filter((p) => p.elegido_id)) {
         const enPapel = modoEntrega[parte.id] === "papel";
@@ -160,9 +217,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
           const trozos: string[] = [];
           for (let i = 0; i < hojas.length; i += 2) {
             const tanda = hojas.slice(i, i + 2);
-            setPaso(
-              `Leyendo tus hojas: ${Math.min(i + tanda.length, hojas.length)} de ${hojas.length}`,
-            );
+            avanzar();
             const respuesta = await fetch("/api/transcribir", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -175,9 +230,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
           texto = trozos.join("\n\n");
         }
 
-        setPaso(
-          parte.tipo === "tema" ? "Corrigiendo el tema…" : "Corrigiendo el supuesto práctico…",
-        );
+        avanzar();
         const respuesta = await fetch("/api/simulacro/entregar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -196,7 +249,6 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se ha podido entregar.");
     } finally {
-      setPaso("");
       setEntregando(false);
     }
   }
@@ -214,6 +266,26 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
 
   if (!pedido) return <p className="text-apagado">Abriendo el examen…</p>;
   if (!simulacro) return <p className="text-apagado">Ese simulacro no existe.</p>;
+
+  if (simulacro.estado === "abandonado") {
+    return (
+      <div className="mx-auto flex max-w-2xl flex-col gap-4">
+        <h1 className="text-[2.1rem]">Simulacro abandonado</h1>
+        <Ficha className="px-6 py-5">
+          <p className="text-[0.98rem] leading-relaxed text-texto">
+            No cuenta para el historial ni para las rondas del sorteo: los temas y supuestos que
+            salieron pueden volver a salir.
+          </p>
+        </Ficha>
+        <Link href="/simulacros" className="regla self-start text-[0.95rem] text-tinta">
+          ← Volver a simulacros
+        </Link>
+      </div>
+    );
+  }
+
+  const flexible = simulacro.reloj === "flexible";
+  const enPausa = Boolean(simulacro.pausado_en);
 
   // --- corregido: se enseña la corrección --------------------------------
   if (simulacro.estado === "corregido") {
@@ -293,8 +365,8 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-linea pb-5">
         <div>
-          <p className="text-[0.75rem] font-bold uppercase tracking-[0.14em] text-margen">
-            Examen en marcha
+          <p className="text-[0.82rem] font-semibold text-margen">
+            {enPausa ? "En pausa" : "Examen en marcha"} · simulacro {flexible ? "flexible" : "real"}
           </p>
           <h1 className="mt-1 text-[1.8rem]">
             {simulacro.modalidad === "completo"
@@ -310,15 +382,76 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
           ) : null}
         </div>
 
-        <Cronometro
-          iniciadoEn={simulacro.iniciado_en}
-          duracionSegundos={simulacro.duracion_s}
-          modo={modo}
-          onCambiarModo={setModo}
-        />
+        <div className="flex flex-col items-end gap-3">
+          <Cronometro
+            reloj={{
+              iniciadoEn: simulacro.iniciado_en,
+              duracionS: simulacro.duracion_s,
+              pausadoTotalS: simulacro.pausado_total_s ?? 0,
+              pausadoEn: simulacro.pausado_en,
+            }}
+            modo={modo}
+            onCambiarModo={setModo}
+          />
+          <div className="flex flex-wrap justify-end gap-2">
+            {flexible ? (
+              <Boton
+                tono={enPausa ? "principal" : "secundario"}
+                onClick={() => void accionReloj(enPausa ? "reanudar" : "pausar")}
+                disabled={cambiandoReloj}
+              >
+                {enPausa ? "Reanudar" : "Pausar"}
+              </Boton>
+            ) : null}
+            <Boton tono="fantasma" onClick={() => setConfirmarAbandono(true)}>
+              Abandonar
+            </Boton>
+          </div>
+        </div>
       </div>
 
-      {sinElegir.length > 0 ? (
+      {confirmarAbandono ? (
+        <Ficha
+          role="alertdialog"
+          aria-labelledby="abandonar-titulo"
+          className="flex flex-col gap-3 border-margen-hilo px-5 py-4"
+        >
+          <h2 id="abandonar-titulo" className="text-lg">
+            ¿Abandonar este simulacro?
+          </h2>
+          <p className="text-[0.95rem] leading-relaxed text-texto">
+            Se cancela y no cuenta para nada: ni nota, ni historial, ni rondas del sorteo. Lo que
+            hayas escrito se pierde.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Boton onClick={() => void accionReloj("abandonar")} disabled={cambiandoReloj}>
+              Sí, abandonarlo
+            </Boton>
+            <Boton tono="secundario" onClick={() => setConfirmarAbandono(false)}>
+              Seguir con el examen
+            </Boton>
+          </div>
+        </Ficha>
+      ) : null}
+
+      {enPausa ? (
+        <Ficha className="flex flex-col items-start gap-3 px-6 py-8">
+          <h2 className="text-xl">Simulacro en pausa</h2>
+          <p className="max-w-[60ch] text-[0.97rem] leading-relaxed text-texto">
+            El reloj está parado y el examen, tapado, para que la pausa sea una pausa. Lo que
+            llevas escrito sigue guardado. Al reanudar, el tiempo sigue desde donde lo dejaste.
+          </p>
+          <Boton
+            tamano="grande"
+            onClick={() => void accionReloj("reanudar")}
+            disabled={cambiandoReloj}
+          >
+            Reanudar
+          </Boton>
+        </Ficha>
+      ) : null}
+
+      {!enPausa && sinElegir.length > 0 ? (
         <div className="flex flex-col gap-6">
           <p className="text-[0.98rem] text-texto">
             Han salido estas bolas. Elige una de cada parte: no se puede cambiar después.
@@ -355,7 +488,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
       ) : null}
 
       {partes
-        .filter((p) => p.elegido_id)
+        .filter((p) => p.elegido_id && !enPausa)
         .map((parte) => {
           const supuesto = parte.tipo === "supuesto" ? supuestosEnunciados[parte.elegido_id!] : null;
           const texto = textos[parte.id] ?? "";
@@ -441,20 +574,28 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
         </p>
       ) : null}
 
-      {partes.every((p) => p.elegido_id) ? (
+      {!enPausa && partes.every((p) => p.elegido_id) ? (
         <div className={clsx("flex flex-wrap items-center gap-4 border-t border-linea pt-5")}>
           <Boton
             tamano="grande"
             onClick={() => void entregar()}
-            disabled={entregando || listasParaEntregar.length === 0}
+            disabled={entregando}
           >
             {entregando ? "Corrigiendo…" : "Entregar y corregir"}
           </Boton>
-          <p className="max-w-[46ch] text-[0.88rem] leading-snug text-apagado" aria-live="polite">
-            {entregando
-              ? paso || "Corrigiendo, no cierres la página."
-              : "Se acepta la entrega aunque se haya pasado el tiempo, pero queda registrado cuánto has tardado de verdad."}
-          </p>
+          {entregando ? (
+            <BarraProgreso
+              pasos={pasosEntrega.lista}
+              actual={pasosEntrega.actual}
+              aviso="No cierres la página. Corregir una parte suele tardar entre uno y dos minutos."
+              className="flex-1"
+            />
+          ) : (
+            <p className="max-w-[46ch] text-[0.88rem] leading-snug text-apagado">
+              Se acepta la entrega aunque se haya pasado el tiempo, pero queda registrado cuánto
+              has tardado de verdad.
+            </p>
+          )}
         </div>
       ) : null}
     </div>

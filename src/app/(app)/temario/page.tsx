@@ -8,7 +8,9 @@ import { Boton } from "@/components/ui/boton";
 import { SubidaApuntes } from "@/components/subida-apuntes";
 import { GeneradorBanco } from "@/components/generador-banco";
 import { ReproductorTema } from "@/components/reproductor-tema";
+import { AudiosTema } from "@/components/audios-tema";
 import { useCuaderno } from "@/datos/almacen";
+import { useSesion } from "@/datos/sesion";
 import {
   AVISO_LITERALIDAD,
   FUENTE_TEMARIO,
@@ -27,7 +29,6 @@ const ETIQUETAS: Record<EstadoContenido, { texto: string; tono: "neutra" | "hech
 export default function PaginaTemario() {
   const { temas, guardarTexto, renombrarTema, cargado } = useCuaderno();
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
-
 
   if (!cargado) return <p className="text-apagado">Abriendo el cuaderno…</p>;
 
@@ -50,7 +51,7 @@ export default function PaginaTemario() {
           const estaAbierto = abiertoId === tema.id;
           return (
             <li key={tema.id}>
-              <Ficha className={clsx("overflow-hidden", estaAbierto && "border-tinta")}>
+              <Ficha className={clsx("overflow-hidden", estaAbierto && "border-acento-vivo")}>
                 <h2>
                   <button
                     type="button"
@@ -126,11 +127,22 @@ function EditorTema({
   onGuardar: (texto: string, estado: EstadoContenido) => void;
   onRenombrar: (titulo: string) => void;
 }) {
+  const { alDia } = useSesion();
   const [borrador, setBorrador] = useState(texto);
+  const [base, setBase] = useState(texto);
   const [nuevoEstado, setNuevoEstado] = useState<EstadoContenido>(
     estado === "sin_contenido" ? "parcial" : estado,
   );
   const [guardado, setGuardado] = useState(false);
+  const [confirmarVaciar, setConfirmarVaciar] = useState(false);
+
+  // Si el texto del tema llega después (al juntarse con la cuenta, o desde el
+  // editor en otra pestaña) y aquí no se ha tocado nada, se muestra el nuevo.
+  // Si ya se estaba escribiendo, no se pisa lo escrito.
+  if (texto !== base) {
+    setBase(texto);
+    if (borrador === base) setBorrador(texto);
+  }
 
   const palabras = borrador.trim() ? borrador.trim().split(/\s+/).length : 0;
   const duda = TEMARIO_PT.find((t) => t.numero === numero)?.dudaLiteralidad;
@@ -147,6 +159,20 @@ function EditorTema({
         </p>
       ) : null}
 
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <a
+          href={`/tema/${numero}`}
+          target="_blank"
+          rel="noopener"
+          className="inline-flex min-h-11 items-center gap-2 rounded-pliegue bg-sec-temario-fondo px-4 text-[0.92rem] font-semibold text-sec-temario"
+        >
+          Abrir el tema completo en otra pestaña ↗
+        </a>
+        <span className="text-[0.82rem] text-apagado">
+          Para leerlo con su índice y editarlo a pantalla completa.
+        </span>
+      </div>
+
       <EditorTitulo id={id} titulo={titulo} onRenombrar={onRenombrar} />
 
       <SubidaApuntes
@@ -162,7 +188,8 @@ function EditorTema({
         Tu tema
       </label>
       <p id={`${id}-ayuda`} className="mb-2 text-[0.85rem] text-apagado">
-        Pega aquí tus apuntes o escríbelos. Puedes guardarlo a medias y seguir otro día.
+        Pega aquí tus apuntes o retoca algo rápido. Para leerlo o editarlo entero y cómodo, ábrelo en
+        otra pestaña (botón de arriba).
       </p>
       <textarea
         id={`${id}-texto`}
@@ -172,8 +199,8 @@ function EditorTema({
           setBorrador(e.target.value);
           setGuardado(false);
         }}
-        rows={10}
-        className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 text-[0.95rem] leading-relaxed text-tinta"
+        rows={8}
+        className="w-full resize-y rounded-pliegue border-2 border-linea bg-papel-alto px-4 py-3 text-[0.95rem] leading-relaxed text-tinta"
       />
 
       <fieldset className="mt-4">
@@ -201,27 +228,64 @@ function EditorTema({
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Boton
           onClick={() => {
+            // Vaciar un tema que tenía texto se confirma: es irreversible.
+            if (!borrador.trim() && texto.trim() && !confirmarVaciar) {
+              setConfirmarVaciar(true);
+              return;
+            }
             onGuardar(borrador, borrador.trim() ? nuevoEstado : "sin_contenido");
             setGuardado(true);
+            setConfirmarVaciar(false);
           }}
+          disabled={!alDia}
         >
-          Guardar el tema
+          {confirmarVaciar ? "Sí, dejar el tema vacío" : "Guardar el tema"}
         </Boton>
+        {!alDia ? (
+          <span className="text-[0.85rem] text-aviso" aria-live="polite">
+            Esperando a tu cuenta para no guardar encima de algo más nuevo…
+          </span>
+        ) : null}
+        {confirmarVaciar ? (
+          <span role="alert" className="text-[0.85rem] font-bold text-margen">
+            Vas a borrar todo el texto de este tema. Pulsa otra vez para confirmar.
+          </span>
+        ) : null}
         <span className="text-[0.85rem] text-apagado" data-numerico>
           {palabras} palabras
         </span>
+        {borrador !== texto ? (
+          <Boton
+            tono="secundario"
+            onClick={() => {
+              setBorrador(texto);
+              setGuardado(false);
+            }}
+          >
+            Descartar cambios
+          </Boton>
+        ) : null}
         <span aria-live="polite" className="text-[0.88rem] text-visto">
           {guardado ? "Guardado." : ""}
         </span>
       </div>
 
-      {borrador.trim() ? (
-        <div className="mt-5 border-t border-linea-suave pt-4">
-          <ReproductorTema texto={borrador} titulo={String(numero)} />
-        </div>
+      {texto.trim() ? (
+        <details className="mt-5 border-t border-linea-suave pt-4">
+          <summary className="regla w-fit cursor-pointer text-[0.95rem] font-semibold text-tinta">
+            Escuchar el tema
+          </summary>
+          <div className="mt-4 flex flex-col gap-5">
+            <AudiosTema temaId={temaId} numero={numero} />
+            <div className="border-t border-linea-suave pt-4">
+              <p className="mb-2 text-[0.9rem] font-semibold text-tinta">Voz del dispositivo</p>
+              <ReproductorTema texto={borrador} titulo={String(numero)} />
+            </div>
+          </div>
+        </details>
       ) : null}
 
-      <GeneradorBanco temaId={temaId} hayTexto={texto.trim().length > 0} />
+      <GeneradorBanco temaId={temaId} numero={numero} hayTexto={texto.trim().length > 0} />
     </div>
   );
 }
@@ -238,10 +302,17 @@ function EditorTitulo({
 }) {
   const [valor, setValor] = useState(titulo);
   const [hecho, setHecho] = useState(false);
+  const [abierto, setAbierto] = useState(false);
 
   return (
-    <details className="mb-5 max-w-[80ch]">
-      <summary className="regla inline-block cursor-pointer text-[0.85rem] text-texto">
+    <details className="mb-5 max-w-[80ch]" open={abierto}>
+      <summary
+        className="regla inline-block cursor-pointer text-[0.85rem] text-texto"
+        onClick={(e) => {
+          e.preventDefault();
+          setAbierto((v) => !v);
+        }}
+      >
         Corregir el enunciado
       </summary>
       <div className="mt-2">
@@ -259,17 +330,30 @@ function EditorTitulo({
             }}
             className="flex-1 rounded-pliegue border border-linea bg-papel-alto px-3 py-2 text-[0.9rem] leading-relaxed"
           />
-          <Boton
-            tono="secundario"
-            onClick={() => {
-              const limpio = valor.trim();
-              if (!limpio) return;
-              onRenombrar(limpio);
-              setHecho(true);
-            }}
-          >
-            Guardar enunciado
-          </Boton>
+          <div className="flex gap-2 sm:flex-col">
+            <Boton
+              tono="secundario"
+              onClick={() => {
+                const limpio = valor.trim();
+                if (!limpio) return;
+                onRenombrar(limpio);
+                setHecho(true);
+                setAbierto(false);
+              }}
+            >
+              Guardar enunciado
+            </Boton>
+            <Boton
+              tono="fantasma"
+              onClick={() => {
+                setValor(titulo);
+                setHecho(false);
+                setAbierto(false);
+              }}
+            >
+              Cancelar
+            </Boton>
+          </div>
         </div>
         <span aria-live="polite" className="mt-1 block text-[0.85rem] text-visto">
           {hecho ? "Enunciado actualizado." : ""}

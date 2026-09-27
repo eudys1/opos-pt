@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Boton } from "@/components/ui/boton";
 import { Ficha } from "@/components/ui/ficha";
 import { useSesion } from "@/datos/sesion";
+import { comprimirImagen } from "@/datos/comprimir";
+import { BarraProgreso } from "@/components/ui/barra-progreso";
 
 /**
  * Subir fotos o PDF de un tema y pasarlos a texto.
@@ -51,7 +53,9 @@ export function SubidaApuntes({
     setResultados([]);
     setEstado("subiendo");
 
-    const lista = Array.from(archivos).slice(0, 20);
+    // Las fotos se reducen aquí, en el móvil: se suben antes y ocupan menos.
+    setProgreso("Preparando las fotos…");
+    const lista = await Promise.all(Array.from(archivos).slice(0, 20).map((a) => comprimirImagen(a)));
     const demasiadoGrandes = lista.filter((a) => a.size > MAXIMO_BYTES);
     if (demasiadoGrandes.length > 0) {
       setEstado("error");
@@ -189,9 +193,13 @@ export function SubidaApuntes({
         </p>
       </div>
 
-      <p aria-live="polite" className="text-[0.88rem] text-texto">
-        {progreso}
-      </p>
+      {trabajando ? (
+        <BarraProgreso
+          pasos={["subiendo los archivos", "leyendo el texto"]}
+          actual={estado === "subiendo" ? 0 : 1}
+          aviso={progreso || "Cada página tarda unos segundos."}
+        />
+      ) : null}
 
       {error ? (
         <p role="alert" className="rounded-pliegue border border-margen-hilo bg-margen-fondo px-3 py-2 text-[0.88rem] text-tinta">

@@ -32,6 +32,8 @@ export function CorreccionDetallada({
         </p>
       </Ficha>
 
+      {correccion.puntosClave?.length ? <PuntosClave puntos={correccion.puntosClave} /> : null}
+
       <section>
         <h3 className="text-xl">Por criterios</h3>
         <ul className="mt-3 flex flex-col gap-2">
@@ -65,7 +67,7 @@ export function CorreccionDetallada({
                     <div
                       className={clsx(
                         "h-1.5 rounded-full",
-                        criterio.nota >= 7 ? "bg-visto" : criterio.nota >= 5 ? "bg-tinta" : "bg-margen",
+                        criterio.nota >= 7 ? "bg-visto" : criterio.nota >= 5 ? "bg-aviso-vivo" : "bg-margen",
                       )}
                       style={{ width: `${Math.max(3, criterio.nota * 10)}%` }}
                     />
@@ -132,5 +134,51 @@ function Lista({
         </ul>
       )}
     </Ficha>
+  );
+}
+
+const MARCA: Record<"si" | "parcial" | "no", { texto: string; clase: string }> = {
+  si: { texto: "Está", clase: "border-visto/40 bg-visto-fondo text-visto" },
+  parcial: { texto: "A medias", clase: "border-linea bg-papel-franja text-tinta" },
+  no: { texto: "Falta", clase: "border-margen-hilo bg-margen-fondo text-margen" },
+};
+
+/**
+ * Cotejo con la resolución de la academia: cada idea importante y si la
+ * respuesta la recoge. Es lo que se mira primero, porque es lo que espera ver
+ * el tribunal.
+ */
+function PuntosClave({
+  puntos,
+}: {
+  puntos: NonNullable<CorreccionSupuesto["puntosClave"]>;
+}) {
+  const estan = puntos.filter((p) => p.presente === "si").length;
+  return (
+    <section>
+      <h3 className="text-xl">Frente a la resolución de la academia</h3>
+      <p className="mt-1 text-[0.92rem] text-texto">
+        Recoges{" "}
+        <strong className="font-semibold" data-numerico>
+          {estan} de {puntos.length}
+        </strong>{" "}
+        ideas clave.
+      </p>
+      <ul className="mt-3 flex flex-col gap-1.5">
+        {puntos.map((p) => (
+          <li key={p.punto} className="flex items-start gap-3">
+            <span
+              className={clsx(
+                "mt-0.5 inline-flex w-[5.5rem] shrink-0 justify-center rounded-pliegue border px-2 py-0.5 text-[0.78rem] font-semibold",
+                MARCA[p.presente].clase,
+              )}
+            >
+              {MARCA[p.presente].texto}
+            </span>
+            <span className="text-[0.95rem] leading-relaxed text-tinta">{p.punto}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

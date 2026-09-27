@@ -1,20 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Karla } from "next/font/google";
+import { Fredoka, Nunito } from "next/font/google";
 import "./globals.css";
 import { RegistroSW } from "@/components/registro-sw";
 
-const display = Fraunces({
+// Las de la dirección B: Fredoka, redondeada, para titulares y cifras; Nunito
+// para leer, también de terminaciones suaves. Juntas dan el tono cercano de B.
+const display = Fredoka({
   variable: "--fuente-display",
   subsets: ["latin"],
-  // Fuente variable: el peso se ajusta con font-weight y el eje óptico con opsz.
-  axes: ["SOFT", "WONK", "opsz"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
-const texto = Karla({
+const texto = Nunito({
   variable: "--fuente-texto",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "600", "700", "800"],
   display: "swap",
 });
 
@@ -32,16 +33,16 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f2e7" },
-    { media: "(prefers-color-scheme: dark)", color: "#151c28" },
+    { media: "(prefers-color-scheme: light)", color: "#fff8f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#fff8f0" },
   ],
 };
 
 /**
- * Aplica el tema guardado antes del primer pintado. Sin esto, quien tenga el
- * cuaderno en oscuro vería un fogonazo claro en cada carga.
+ * Aplica el tema antes del primer pintado. Por defecto es el claro; el oscuro
+ * solo si se ha elegido a mano. Sin esto habría un fogonazo al cargar.
  */
-const TEMA_SIN_FOGONAZO = `try{var t=localStorage.getItem("cuaderno:tema");if(t==="claro"||t==="oscuro"){document.documentElement.setAttribute("data-tema",t)}}catch(e){}`;
+const TEMA_SIN_FOGONAZO = `try{if(localStorage.getItem("cuaderno:tema")==="oscuro"){document.documentElement.setAttribute("data-tema","oscuro")}}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -56,7 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <a
           href="#contenido"
-          className="sr-only rounded-pliegue focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-tinta focus:px-4 focus:py-2 focus:text-papel"
+          className="sr-only rounded-pliegue focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-boton focus:px-4 focus:py-2 focus:text-sobre-boton"
         >
           Saltar al contenido
         </a>

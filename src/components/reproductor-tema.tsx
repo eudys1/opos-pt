@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
+import { textoParaEscuchar } from "@/nucleo/estructura";
 
 /**
  * Escuchar un tema mientras vas en el coche o andando.
  *
- * Usa la voz del propio dispositivo: es gratis, no gasta IA y funciona sin
- * conexión. Suena a robot, pero para repasar de oído cumple. La voz natural
- * generada queda pendiente de elegir un servicio de voz (no lo cubre la API de
- * Claude), y por eso no se promete aquí.
+ * La voz del propio dispositivo: gratis, sin conexión y al momento, aunque
+ * suene a robot. Es el respaldo: la voz natural (generada con `npm run voz`)
+ * y las grabaciones propias están en AudiosTema.
  */
 export function ReproductorTema({ texto, titulo }: { texto: string; titulo: string }) {
   // Se calcula en el primer render del cliente, no en un efecto: así no hay
@@ -46,7 +46,7 @@ export function ReproductorTema({ texto, titulo }: { texto: string; titulo: stri
     if (!texto.trim()) return;
     window.speechSynthesis.cancel();
 
-    const nueva = new SpeechSynthesisUtterance(limpiarParaLeer(texto));
+    const nueva = new SpeechSynthesisUtterance(limpiarParaLeer(textoParaEscuchar(texto)));
     nueva.lang = "es-ES";
     nueva.rate = velocidad;
     const voz = voces.find((v) => v.name === vozElegida);

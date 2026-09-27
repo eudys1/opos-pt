@@ -134,7 +134,7 @@ async function principal() {
         t.numero === 2 ? { ...t, texto: "Apuntes nuevos", estadoContenido: "parcial" as const } : t,
       ),
     };
-    await guardarEnLaNube(ana.cliente, ana.id, cambiado);
+    await guardarEnLaNube(ana.cliente, ana.id, cambiado, new Set(cambiado.temas.map((t) => t.id)));
     const { data: comprobado } = await ana.cliente
       .from("temas")
       .select("texto, estado_contenido")
@@ -173,6 +173,53 @@ async function principal() {
     // 6. Berta empieza de cero con su propio temario.
     const deBerta = await sincronizar(berta.cliente, berta.id, estadoDePrueba());
     comprobar("cada cuenta arranca con sus propios temas", deBerta.estado.temas.length === 2);
+
+    // 7. El caso del 27-09-2026: Ana abre la app en un navegador nuevo, con
+    //    los temas vacíos. No puede borrar lo que tiene en la cuenta, ni con
+    //    temas sin tocar ni con temas vacíos fechados hoy (copias antiguas).
+    const textoAntes = async () =>
+      (
+        await admin
+          .from("temas")
+          .select("numero, texto")
+          .eq("usuario_id", ana.id)
+          .order("numero")
+      ).data?.map((t) => t.texto) ?? [];
+    const antes = await textoAntes();
+    const hoy = new Date().toISOString().slice(0, 10);
+    for (const fecha of ["", hoy]) {
+      const nuevo: Estado = {
+        ...estadoDePrueba(),
+        temas: estadoDePrueba().temas.map((t) => ({
+          ...t,
+          texto: "",
+          estadoContenido: "sin_contenido" as const,
+          estadoEstudio: "por_estudiar" as const,
+          actualizadoEn: fecha,
+        })),
+        eventos: [],
+        objetivos: [],
+      };
+      const fusion = await sincronizar(ana.cliente, ana.id, nuevo);
+      comprobar(
+        `navegador nuevo (fecha "${fecha || "sin tocar"}"): la fusión se queda con el texto de la cuenta`,
+        fusion.estado.temas.find((t) => t.numero === 2)?.texto === "Apuntes nuevos",
+      );
+      // Y aunque se intentara subir el estado vacío de antes de fusionar
+      // (la carrera que también podía pasar), la cuenta no cambia.
+      const conIds: Estado = {
+        ...nuevo,
+        temas: nuevo.temas.map((t) => ({
+          ...t,
+          id: fusion.estado.temas.find((f) => f.numero === t.numero)!.id,
+        })),
+      };
+      await guardarEnLaNube(ana.cliente, ana.id, conIds, new Set(conIds.temas.map((t) => t.id)));
+      comprobar(
+        `navegador nuevo (fecha "${fecha || "sin tocar"}"): subir sus temas vacíos no borra nada`,
+        JSON.stringify(await textoAntes()) === JSON.stringify(antes),
+      );
+    }
   } finally {
     await admin.auth.admin.deleteUser(ana.id);
     await admin.auth.admin.deleteUser(berta.id);

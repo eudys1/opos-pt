@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Boton } from "@/components/ui/boton";
 import { useSesion } from "@/datos/sesion";
+import { comprimirImagen } from "@/datos/comprimir";
 
 /**
  * Entregar una parte del examen en papel: se suben las fotos y al entregar se
@@ -31,7 +32,8 @@ export function EntregaEnPapel({
     setError("");
     const nuevas: string[] = [];
     try {
-      for (const [i, archivo] of Array.from(archivos).slice(0, 20).entries()) {
+      for (const [i, original] of Array.from(archivos).slice(0, 20).entries()) {
+        const archivo = await comprimirImagen(original);
         const ruta = `${usuario.id}/simulacros/${simulacroId}/${parteId}-${Date.now()}-${i}-${archivo.name.replace(/[^\w.-]/g, "_")}`;
         const { error: e } = await cliente.storage
           .from("apuntes")

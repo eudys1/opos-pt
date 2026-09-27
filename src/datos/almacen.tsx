@@ -5,6 +5,14 @@ import { TEMARIO_PT } from "@/contenido/temario-pt";
 import { hoyISO } from "@/nucleo/fechas";
 import { proximoNumeroDeRepaso } from "@/nucleo/repasos";
 import {
+  cambiarFechaHito,
+  desmarcarHito,
+  estadoEstudioDe,
+  marcarSiguienteHito,
+  type CodigoEdicion,
+} from "@/nucleo/hitos";
+import { esReprogramacion } from "@/nucleo/agenda";
+import {
   CONFIGURACION_ANDALUCIA,
   INTERVALOS_POR_DEFECTO,
   type EstadoContenido,
@@ -12,6 +20,7 @@ import {
   type Objetivo,
   type Perfil,
   type Tema,
+  type TipoActividad,
 } from "@/nucleo/tipos";
 
 /**
@@ -55,11 +64,16 @@ function estadoInicial(): Estado {
       estadoEstudio: "por_estudiar" as const,
       texto: "",
       vueltas: 0,
-      actualizadoEn: hoyISO(),
+      actualizadoEn: "",
     })),
     eventos: [],
     objetivos: [],
   };
+}
+
+/** Hora exacta de un cambio: la fusión con la cuenta la necesita, no solo el día. */
+function ahoraISO(): string {
+  return new Date().toISOString();
 }
 
 function nuevoId(): string {
@@ -95,9 +109,31 @@ function cargarDelNavegador() {
   }
 }
 
+/**
+ * Varias pestañas abiertas (Mi temario y el editor del tema, por ejemplo)
+ * comparten el mismo guardado del navegador. Cuando otra pestaña lo cambia,
+ * esta se pone al día, en vez de seguir con su copia vieja y acabar
+ * guardándola encima de lo nuevo.
+ */
+let escuchandoOtrasPestanas = false;
+function escucharOtrasPestanas() {
+  if (escuchandoOtrasPestanas || typeof window === "undefined") return;
+  escuchandoOtrasPestanas = true;
+  window.addEventListener("storage", (e) => {
+    if (e.key !== CLAVE || !e.newValue) return;
+    try {
+      estado = { ...estadoInicial(), ...(JSON.parse(e.newValue) as Partial<Estado>) };
+      avisar();
+    } catch {
+      // Un guardado ilegible de otra pestaña no rompe esta.
+    }
+  });
+}
+
 function suscribir(escucha: () => void) {
   const eraPrimera = !cargado;
   cargarDelNavegador();
+  escucharOtrasPestanas();
   escuchas.add(escucha);
   if (eraPrimera) escucha();
   return () => {
@@ -152,7 +188,7 @@ export function useCuaderno() {
         ...prev,
         eventos: [...prev.eventos, { id: nuevoId(), temaId, tipo: "estudiado", fecha }],
         temas: prev.temas.map((t) =>
-          t.id === temaId ? { ...t, estadoEstudio: "estudiado", actualizadoEn: fecha } : t,
+          t.id === temaId ? { ...t, estadoEstudio: "estudiado", actualizadoEn: ahoraISO() } : t,
         ),
       };
     });
@@ -175,11 +211,65 @@ export function useCuaderno() {
                 ...t,
                 estadoEstudio: vueltaCompleta ? "dominado" : "en_repaso",
                 vueltas: vueltaCompleta ? t.vueltas + 1 : t.vueltas,
-                actualizadoEn: fecha,
+                actualizadoEn: ahoraISO(),
               }
             : t,
         ),
       };
+    });
+  }, []);
+
+  /**
+   * Marca el siguiente hito de un tema en la fecha dada. Devuelve el código de
+   * error si no se puede, para que la pantalla lo explique.
+   */
+  const marcarHito = useCallback((temaId: string, fecha: string): CodigoEdicion | null => {
+    const r = marcarSiguienteHito(estado.eventos, temaId, fecha, {
+      hoy: hoyISO(),
+      totalRepasos: estado.perfil.intervalosRepaso.length,
+      nuevoId,
+    });
+    if (!r.ok) return r.codigo;
+    actualizar((prev) => conHitos(prev, temaId, r.eventos, { limpiarReprogramacion: true }));
+    return null;
+  }, []);
+
+  const cambiarFechaDeHito = useCallback(
+    (temaId: string, indice: number, fecha: string): CodigoEdicion | null => {
+      const r = cambiarFechaHito(estado.eventos, temaId, indice, fecha, hoyISO());
+      if (!r.ok) return r.codigo;
+      actualizar((prev) => conHitos(prev, temaId, r.eventos));
+      return null;
+    },
+    [],
+  );
+
+  const desmarcar = useCallback((temaId: string, indice: number) => {
+    actualizar((prev) => conHitos(prev, temaId, desmarcarHito(prev.eventos, temaId, indice)));
+  }, []);
+
+  /** Mueve el próximo repaso de un tema a otro día, sin marcarlo como hecho. */
+  const reprogramarRepaso = useCallback((temaId: string, numeroRepaso: number, fecha: string) => {
+    actualizar((prev) => {
+      const existente = prev.objetivos.find(
+        (o) => esReprogramacion(o) && o.temaId === temaId && o.numeroRepaso === numeroRepaso,
+      );
+      const objetivos = existente
+        ? prev.objetivos.map((o) => (o.id === existente.id ? { ...o, fecha } : o))
+        : [
+            ...prev.objetivos,
+            {
+              id: nuevoId(),
+              fecha,
+              texto: `Repaso ${numeroRepaso}`,
+              temaId,
+              automatico: true,
+              hecho: false,
+              tipo: "repaso" as const,
+              numeroRepaso,
+            },
+          ];
+      return { ...prev, objetivos };
     });
   }, []);
 
@@ -217,7 +307,7 @@ export function useCuaderno() {
       actualizar((prev) => ({
         ...prev,
         temas: prev.temas.map((t) =>
-          t.id === temaId ? { ...t, texto, estadoContenido, actualizadoEn: hoyISO() } : t,
+          t.id === temaId ? { ...t, texto, estadoContenido, actualizadoEn: ahoraISO() } : t,
         ),
       }));
     },
@@ -227,16 +317,32 @@ export function useCuaderno() {
   const renombrarTema = useCallback((temaId: string, titulo: string) => {
     actualizar((prev) => ({
       ...prev,
-      temas: prev.temas.map((t) => (t.id === temaId ? { ...t, titulo } : t)),
+      temas: prev.temas.map((t) => (t.id === temaId ? { ...t, titulo, actualizadoEn: ahoraISO() } : t)),
     }));
   }, []);
 
-  const anadirObjetivo = useCallback((fecha: string, texto: string, temaId?: string) => {
-    actualizar((prev) => ({
-      ...prev,
-      objetivos: [...prev.objetivos, { id: nuevoId(), fecha, texto, temaId, hecho: false }],
-    }));
-  }, []);
+  const anadirObjetivo = useCallback(
+    (fecha: string, texto: string, tipo: TipoActividad = "otro", temaId?: string) => {
+      actualizar((prev) => ({
+        ...prev,
+        objetivos: [
+          ...prev.objetivos,
+          { id: nuevoId(), fecha, texto, temaId, tipo, hecho: false },
+        ],
+      }));
+    },
+    [],
+  );
+
+  const editarObjetivo = useCallback(
+    (id: string, cambios: Partial<Pick<Objetivo, "texto" | "fecha" | "tipo" | "temaId">>) => {
+      actualizar((prev) => ({
+        ...prev,
+        objetivos: prev.objetivos.map((o) => (o.id === id ? { ...o, ...cambios } : o)),
+      }));
+    },
+    [],
+  );
 
   const alternarObjetivo = useCallback((id: string) => {
     actualizar((prev) => ({
@@ -268,10 +374,15 @@ export function useCuaderno() {
       cargado: listo,
       marcarEstudiado,
       marcarRepaso,
+      marcarHito,
+      cambiarFechaDeHito,
+      desmarcar,
+      reprogramarRepaso,
       deshacerUltimoHito,
       guardarTexto,
       renombrarTema,
       anadirObjetivo,
+      editarObjetivo,
       alternarObjetivo,
       borrarObjetivo,
       aplazarObjetivo,
@@ -283,16 +394,64 @@ export function useCuaderno() {
       listo,
       marcarEstudiado,
       marcarRepaso,
+      marcarHito,
+      cambiarFechaDeHito,
+      desmarcar,
+      reprogramarRepaso,
       deshacerUltimoHito,
       guardarTexto,
       renombrarTema,
       anadirObjetivo,
+      editarObjetivo,
       alternarObjetivo,
       borrarObjetivo,
       aplazarObjetivo,
       guardarPerfil,
     ],
   );
+}
+
+/**
+ * Aplica unos eventos nuevos y recalcula el estado del tema a partir de sus
+ * hitos, para que la tabla, el planificador y el sorteo digan siempre lo mismo.
+ */
+function conHitos(
+  prev: Estado,
+  temaId: string,
+  eventos: EventoEstudio[],
+  opciones: { limpiarReprogramacion?: boolean } = {},
+): Estado {
+  const total = prev.perfil.intervalosRepaso.length;
+  const estadoEstudio = estadoEstudioDe(eventos, temaId, total);
+  const antes = prev.temas.find((t) => t.id === temaId);
+  // Completar la vuelta suma una; deshacer el último repaso la resta.
+  const delta =
+    antes?.estadoEstudio !== "dominado" && estadoEstudio === "dominado"
+      ? 1
+      : antes?.estadoEstudio === "dominado" && estadoEstudio !== "dominado"
+        ? -1
+        : 0;
+
+  // Un repaso ya hecho no necesita su reprogramación: se limpia.
+  const hechos = new Set(
+    eventos.filter((e) => e.temaId === temaId && e.tipo === "repaso").map((e) => e.numeroRepaso),
+  );
+  const objetivos = opciones.limpiarReprogramacion
+    ? prev.objetivos.filter(
+        (o) => !(esReprogramacion(o) && o.temaId === temaId && hechos.has(o.numeroRepaso)),
+      )
+    : prev.objetivos;
+
+  return {
+    ...prev,
+    eventos,
+    objetivos,
+    temas: prev.temas.map((t) =>
+      t.id === temaId
+        ? { ...t, estadoEstudio, vueltas: Math.max(0, t.vueltas + delta), actualizadoEn: ahoraISO() }
+        : t,
+    ),
+  };
 }
 
 /** Temas que pueden entrar en prácticas y sorteos: los que tienen contenido. */

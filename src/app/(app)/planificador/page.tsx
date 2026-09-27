@@ -5,262 +5,464 @@ import clsx from "clsx";
 import { Ficha } from "@/components/ui/ficha";
 import { Boton } from "@/components/ui/boton";
 import { Visto } from "@/components/marcas";
+import { SECCIONES, TIPOS_ACTIVIDAD } from "@/components/ui/secciones";
+import { textoDeEntrada } from "@/components/ui/texto-entrada";
+import { EditorHito, type HitoAEditar } from "@/components/editor-hito";
+import { EditorObjetivo, type ObjetivoAEditar } from "@/components/editor-objetivo";
 import { useCuaderno } from "@/datos/almacen";
+import { usePreferencia } from "@/datos/preferencias";
+import {
+  agenda,
+  diasDelRango,
+  lunesDe,
+  rejillaDelMes,
+  resumenObjetivos,
+  type EntradaAgenda,
+} from "@/nucleo/agenda";
+import { fechaCorta, fechaLarga, hoyISO, sumarDias } from "@/nucleo/fechas";
+import type { Tema } from "@/nucleo/tipos";
 
-import { fechaCorta, hoyISO, sumarDias } from "@/nucleo/fechas";
-import { repasosDelDia, progresoDelTema } from "@/nucleo/repasos";
+/**
+ * Planificador.
+ *
+ * Enseña en cada día todo lo que hay: lo que has hecho, los repasos que tocan
+ * (o que has movido) y lo que te has propuesto, cada cosa con el color de su
+ * tipo. Todo se puede pulsar para editarlo, y los repasos son los mismos del
+ * registro de estudio: cambiarlos aquí los cambia allí.
+ *
+ * Semana o mes: el mes, para no cargar la pantalla, enseña solo marcas de
+ * color por día; al pulsar un día se despliega su detalle debajo.
+ */
 
+type Vista = "semana" | "mes";
+
+const DIAS_CORTOS = ["L", "M", "X", "J", "V", "S", "D"];
 const DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
 
-/** Lunes de la semana a la que pertenece una fecha. */
-function lunesDe(fecha: string): string {
-  const d = new Date(`${fecha}T00:00:00`);
-  const diaSemana = (d.getDay() + 6) % 7; // 0 = lunes
-  return sumarDias(fecha, -diaSemana);
+function nombreMes(fecha: string): string {
+  const [anio, mes] = fecha.split("-").map(Number);
+  return `${MESES[mes - 1]} de ${anio}`;
+}
+
+function sumarMeses(fecha: string, n: number): string {
+  const [anio, mes] = fecha.split("-").map(Number);
+  const d = new Date(anio, mes - 1 + n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+function finDeMes(fecha: string): string {
+  const [anio, mes] = fecha.split("-").map(Number);
+  return `${fecha.slice(0, 7)}-${String(new Date(anio, mes, 0).getDate()).padStart(2, "0")}`;
 }
 
 export default function PaginaPlanificador() {
-  const { temas, eventos, objetivos, perfil, anadirObjetivo, alternarObjetivo, borrarObjetivo, aplazarObjetivo, cargado } =
-    useCuaderno();
+  const { temas, eventos, objetivos, perfil, cargado } = useCuaderno();
   const hoy = hoyISO();
-  const [lunes, setLunes] = useState(() => lunesDe(hoy));
+  const [vista, setVista] = usePreferencia<Vista>("planificador-vista", "semana");
+  const [ancla, setAncla] = useState(hoy);
+  const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
+  const [editandoHito, setEditandoHito] = useState<HitoAEditar | null>(null);
+  const [editandoObjetivo, setEditandoObjetivo] = useState<ObjetivoAEditar | null>(null);
 
-  const dias = useMemo(() => Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i)), [lunes]);
-
-  const pendientesHoy = useMemo(
+  const dias = useMemo(
     () =>
-      repasosDelDia(
-        eventos,
-        temas.map((t) => t.id),
-        { intervalos: perfil.intervalosRepaso, hoy },
-      ),
-    [eventos, temas, perfil.intervalosRepaso, hoy],
+      vista === "semana"
+        ? diasDelRango(lunesDe(ancla), sumarDias(lunesDe(ancla), 6))
+        : rejillaDelMes(ancla.slice(0, 7)),
+    [vista, ancla],
   );
 
-  // Repasos con fecha futura dentro de la semana mostrada.
-  const repasosPorDia = useMemo(() => {
-    const mapa = new Map<string, { temaId: string; indice: number }[]>();
-    for (const tema of temas) {
-      const { siguiente } = progresoDelTema(eventos, tema.id, {
+  const mapa = useMemo(
+    () =>
+      agenda(dias[0], dias[dias.length - 1], {
+        eventos,
+        objetivos,
+        temaIds: temas.map((t) => t.id),
         intervalos: perfil.intervalosRepaso,
         hoy,
-      });
-      if (!siguiente?.tocaEn) continue;
-      const lista = mapa.get(siguiente.tocaEn) ?? [];
-      lista.push({ temaId: tema.id, indice: siguiente.indice });
-      mapa.set(siguiente.tocaEn, lista);
-    }
-    return mapa;
-  }, [temas, eventos, perfil.intervalosRepaso, hoy]);
+      }),
+    [dias, eventos, objetivos, temas, perfil.intervalosRepaso, hoy],
+  );
 
-  const delMes = objetivos.filter((o) => o.fecha.slice(0, 7) === hoy.slice(0, 7));
-  const cumplidos = delMes.filter((o) => o.hecho).length;
-  const porcentaje = delMes.length ? Math.round((cumplidos / delMes.length) * 100) : null;
+  const lunes = lunesDe(vista === "semana" ? ancla : hoy);
+  const semana = resumenObjetivos(objetivos, lunes, sumarDias(lunes, 6));
+  const inicioMes = `${ancla.slice(0, 7)}-01`;
+  const mes = resumenObjetivos(objetivos, inicioMes, finDeMes(inicioMes));
 
   if (!cargado) return <p className="text-apagado">Abriendo el cuaderno…</p>;
 
+  const pulsar = (e: EntradaAgenda) => {
+    if (e.origen === "objetivo" && e.objetivoId) setEditandoObjetivo({ id: e.objetivoId, fecha: e.fecha });
+    else if (e.temaId !== undefined && e.indice !== undefined) {
+      setEditandoHito({ temaId: e.temaId, indice: e.indice });
+    }
+  };
+
+  const titulo =
+    vista === "semana"
+      ? `Semana del ${fechaCorta(dias[0])} al ${fechaCorta(dias[6])}`
+      : nombreMes(inicioMes);
+
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-6">
       <header className="flex flex-wrap items-end gap-4">
         <div className="flex-1">
           <h1 className="text-[2.1rem]">Planificador</h1>
-          <p className="mt-1 text-[0.98rem] text-texto">
-            Apunta lo que quieres hacer cada día y márcalo al terminar. Los repasos que tocan
-            aparecen solos.
+          <p className="mt-1 max-w-[68ch] text-[0.98rem] text-texto">
+            Todo lo de cada día con su color. Pulsa cualquier cosa para marcarla, moverla o
+            editarla; los repasos son los mismos que en el registro.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Boton tono="secundario" onClick={() => setLunes(sumarDias(lunes, -7))}>
-            ← Semana anterior
-          </Boton>
-          <Boton tono="fantasma" onClick={() => setLunes(lunesDe(hoy))}>
-            Esta semana
-          </Boton>
-          <Boton tono="secundario" onClick={() => setLunes(sumarDias(lunes, 7))}>
-            Semana siguiente →
-          </Boton>
-        </div>
+        <Boton onClick={() => setEditandoObjetivo({ fecha: hoy })}>Añadir objetivo</Boton>
       </header>
 
-      {pendientesHoy.length > 0 ? (
-        <Ficha className="flex flex-wrap items-center gap-x-3 gap-y-1 border-margen-hilo bg-margen-fondo px-5 py-3">
-          <p className="text-[0.95rem] text-tinta">
-            <strong className="font-semibold">Hoy toca:</strong>{" "}
-            {pendientesHoy
-              .slice(0, 4)
-              .map((p) => {
-                const tema = temas.find((t) => t.id === p.temaId);
-                return `${p.casilla.indice === 0 ? "estudiar" : `repaso ${p.casilla.indice}`} del tema ${tema?.numero}`;
-              })
-              .join(" · ")}
-            {pendientesHoy.length > 4 ? ` y ${pendientesHoy.length - 4} más` : ""}
-          </p>
-        </Ficha>
-      ) : null}
-
-      <div className="grid gap-3 lg:grid-cols-7">
-        {dias.map((dia, i) => {
-          const esHoy = dia === hoy;
-          const delDia = objetivos.filter((o) => o.fecha === dia);
-          const repasos = repasosPorDia.get(dia) ?? [];
-          return (
-            <Ficha
-              key={dia}
-              className={clsx(
-                "flex min-h-[13rem] flex-col gap-2 px-4 py-3",
-                esHoy && "border-tinta",
-                (i === 5 || i === 6) && "bg-papel-franja",
-              )}
-            >
-              <div className="flex items-baseline justify-between">
-                <span className={clsx("text-[0.9rem] font-semibold", esHoy && "text-margen")}>
-                  {DIAS[i]}
-                </span>
-                <span className="text-[0.8rem] text-apagado" data-numerico>
-                  {fechaCorta(dia)}
-                </span>
-              </div>
-
-              {repasos.map((r) => {
-                const tema = temas.find((t) => t.id === r.temaId);
-                if (!tema) return null;
-                return (
-                  <p
-                    key={`${r.temaId}-${r.indice}`}
-                    className="rounded-pliegue border border-dashed border-linea px-2 py-1.5 text-[0.82rem] text-apagado"
-                  >
-                    {r.indice === 0 ? "Estudiar" : `Repaso ${r.indice}`} · tema {tema.numero}
-                  </p>
-                );
-              })}
-
-              <ul className="flex flex-col gap-1.5">
-                {delDia.map((o) => (
-                  <li key={o.id} className="group flex items-start gap-2">
-                    <button
-                      type="button"
-                      onClick={() => alternarObjetivo(o.id)}
-                      aria-pressed={o.hecho}
-                      className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[2px] border border-linea bg-papel-alto"
-                    >
-                      {o.hecho ? <Visto className="h-4 w-4" /> : null}
-                      <span className="sr-only">
-                        {o.hecho ? "Desmarcar" : "Marcar como cumplido"}: {o.texto}
-                      </span>
-                    </button>
-                    <span
-                      className={clsx(
-                        "flex-1 text-[0.88rem] leading-snug",
-                        o.hecho ? "text-tenue line-through" : "text-texto",
-                      )}
-                    >
-                      {o.texto}
-                    </span>
-                    <span className="flex shrink-0 gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-                      {!o.hecho ? (
-                        <button
-                          type="button"
-                          onClick={() => aplazarObjetivo(o.id, sumarDias(o.fecha, 1))}
-                          title="Pasar a mañana"
-                          className="text-[0.75rem] text-apagado hover:text-tinta"
-                        >
-                          →
-                          <span className="sr-only">Pasar a mañana: {o.texto}</span>
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => borrarObjetivo(o.id)}
-                        title="Borrar"
-                        className="text-[0.75rem] text-apagado hover:text-margen"
-                      >
-                        ×<span className="sr-only">Borrar: {o.texto}</span>
-                      </button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <FormularioObjetivo dia={dia} etiqueta={DIAS[i]} onAnadir={anadirObjetivo} />
-            </Ficha>
-          );
-        })}
+      {/* Resumen de objetivos: semana y mes */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Resumen titulo={vista === "semana" ? "Esta semana" : "Semana actual"} datos={semana} />
+        <Resumen titulo={`En ${nombreMes(inicioMes)}`} datos={mes} />
       </div>
 
-      <Ficha className="flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4">
-        <p className="text-[0.95rem] text-texto">
-          Este mes: <strong className="font-semibold">{cumplidos}</strong> de {delMes.length}{" "}
-          objetivos cumplidos
-          {porcentaje !== null ? (
-            <span className="ml-2 font-display text-[1.2rem]" data-numerico>
-              {porcentaje}%
-            </span>
-          ) : null}
-        </p>
-        {delMes.length === 0 ? (
-          <p className="text-[0.9rem] text-apagado">
-            Empieza apuntando un objetivo pequeño para hoy: «leer el tema 1», por ejemplo.
-          </p>
-        ) : null}
-      </Ficha>
+      {/* Barra de control */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div role="tablist" aria-label="Vista" className="inline-flex gap-2">
+          {(["semana", "mes"] as const).map((v) => (
+            <button
+              key={v}
+              role="tab"
+              type="button"
+              aria-selected={vista === v}
+              onClick={() => {
+                setVista(v);
+                setDiaAbierto(null);
+              }}
+              className={clsx(
+                "min-h-11 rounded-full border-[3px] border-borde px-5 text-[0.9rem] font-extrabold",
+                vista === v ? "bg-acento-vivo text-sobre-boton" : "bg-papel-alto text-tinta hover:bg-papel-franja",
+              )}
+            >
+              {v === "semana" ? "Semana" : "Mes"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Boton
+            tono="secundario"
+            onClick={() => setAncla(vista === "semana" ? sumarDias(ancla, -7) : sumarMeses(ancla, -1))}
+          >
+            <span aria-hidden="true">←</span>
+            <span className="sr-only">{vista === "semana" ? "Semana anterior" : "Mes anterior"}</span>
+          </Boton>
+          <Boton tono="fantasma" onClick={() => setAncla(hoy)}>
+            Hoy
+          </Boton>
+          <Boton
+            tono="secundario"
+            onClick={() => setAncla(vista === "semana" ? sumarDias(ancla, 7) : sumarMeses(ancla, 1))}
+          >
+            <span aria-hidden="true">→</span>
+            <span className="sr-only">{vista === "semana" ? "Semana siguiente" : "Mes siguiente"}</span>
+          </Boton>
+        </div>
+
+        <h2 className="text-[1.15rem] first-letter:uppercase" aria-live="polite">
+          {titulo}
+        </h2>
+
+        <Leyenda />
+      </div>
+
+      {vista === "semana" ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {dias.map((dia, i) => (
+            <DiaSemana
+              key={dia}
+              dia={dia}
+              nombre={DIAS[i]}
+              hoy={hoy}
+              entradas={mapa.get(dia) ?? []}
+              temas={temas}
+              onPulsar={pulsar}
+              onAnadir={() => setEditandoObjetivo({ fecha: dia })}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div>
+            <div className="grid grid-cols-7 gap-1.5 text-center text-[0.8rem] font-extrabold text-apagado sm:gap-2">
+              {DIAS_CORTOS.map((d, i) => (
+                <div key={d} className="py-1" aria-hidden="true">
+                  {d}
+                  <span className="sr-only">{DIAS[i]}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-1 grid grid-cols-7 gap-1.5 sm:gap-2">
+              {dias.map((dia) => (
+                <DiaMes
+                  key={dia}
+                  dia={dia}
+                  hoy={hoy}
+                  delMes={dia.slice(0, 7) === inicioMes.slice(0, 7)}
+                  abierto={diaAbierto === dia}
+                  entradas={mapa.get(dia) ?? []}
+                  onAbrir={() => setDiaAbierto(diaAbierto === dia ? null : dia)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {diaAbierto ? (
+            <div className="entra">
+              <DiaSemana
+                dia={diaAbierto}
+                nombre={fechaLarga(diaAbierto)}
+                hoy={hoy}
+                entradas={mapa.get(diaAbierto) ?? []}
+                temas={temas}
+                onPulsar={pulsar}
+                onAnadir={() => setEditandoObjetivo({ fecha: diaAbierto })}
+                ancho
+              />
+            </div>
+          ) : (
+            <p className="text-[0.88rem] text-apagado">Pulsa un día para ver y editar lo que tiene.</p>
+          )}
+        </div>
+      )}
 
       <details className="max-w-[70ch] text-[0.9rem] text-texto">
-        <summary className="regla cursor-pointer text-tinta">
-          ¿De dónde salen los repasos que aparecen solos?
-        </summary>
+        <summary className="regla w-fit cursor-pointer text-tinta">¿De dónde salen los repasos?</summary>
         <p className="mt-2 leading-relaxed text-apagado">
-          De lo que marcas en el registro de estudio. Al marcar un tema como estudiado, la app fija
-          el repaso 1 a los {perfil.intervalosRepaso[0]} días, y los siguientes a los{" "}
-          {perfil.intervalosRepaso.slice(1).join(", ")} días del anterior. Solo se muestra el próximo
-          repaso de cada tema, porque los demás dependen de cuándo hagas este.
+          De lo que marcas como estudiado. El repaso 1 toca a los {perfil.intervalosRepaso[0]} días,
+          y los siguientes a los {perfil.intervalosRepaso.slice(1).join(", ")} días del anterior,
+          contados desde el día en que de verdad lo hiciste. Solo se ve el próximo de cada tema,
+          porque los demás dependen de cuándo hagas ese. Puedes moverlo a otro día sin hacerlo.
         </p>
       </details>
 
-      <p className="text-[0.85rem] text-apagado">
-        Llevas {temas.filter((t) => t.estadoEstudio !== "por_estudiar").length} temas empezados de{" "}
-        {temas.length}. Los que aún no has estudiado no generan repasos.
-      </p>
+      <EditorHito hito={editandoHito} onCerrar={() => setEditandoHito(null)} />
+      <EditorObjetivo objetivo={editandoObjetivo} onCerrar={() => setEditandoObjetivo(null)} />
     </div>
   );
 }
 
-function FormularioObjetivo({
+function Resumen({
+  titulo,
+  datos,
+}: {
+  titulo: string;
+  datos: { total: number; hechos: number; porcentaje: number | null };
+}) {
+  return (
+    <Ficha className="flex items-center gap-4 px-5 py-4">
+      <div className="flex-1">
+        <p className="text-[0.85rem] text-apagado">{titulo}</p>
+        <p className="text-[0.98rem] text-tinta">
+          <strong className="font-semibold" data-numerico>
+            {datos.hechos} de {datos.total}
+          </strong>{" "}
+          objetivos cumplidos
+        </p>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-linea-suave" aria-hidden="true">
+          <div
+            className="h-full rounded-full bg-visto-vivo transition-[width] duration-500"
+            style={{ width: `${datos.porcentaje ?? 0}%` }}
+          />
+        </div>
+      </div>
+      <span className="font-display text-[1.8rem] font-bold text-tinta" data-numerico>
+        {datos.porcentaje === null ? "—" : `${datos.porcentaje}%`}
+      </span>
+    </Ficha>
+  );
+}
+
+function Leyenda() {
+  return (
+    <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.8rem] text-apagado lg:ml-auto" aria-label="Colores">
+      {TIPOS_ACTIVIDAD.map((t) => (
+        <li key={t} className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className={clsx("inline-block h-2.5 w-2.5 rounded-full", SECCIONES[t].lleno)} />
+          {SECCIONES[t].nombre}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DiaSemana({
   dia,
-  etiqueta,
+  nombre,
+  hoy,
+  entradas,
+  temas,
+  onPulsar,
   onAnadir,
+  ancho,
 }: {
   dia: string;
-  etiqueta: string;
-  onAnadir: (fecha: string, texto: string) => void;
+  nombre: string;
+  hoy: string;
+  entradas: EntradaAgenda[];
+  temas: Tema[];
+  onPulsar: (e: EntradaAgenda) => void;
+  onAnadir: () => void;
+  ancho?: boolean;
 }) {
-  const [texto, setTexto] = useState("");
+  const { alternarObjetivo } = useCuaderno();
+  const esHoy = dia === hoy;
+  const pasado = dia < hoy;
 
   return (
-    <form
-      className="mt-auto flex gap-1 pt-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!texto.trim()) return;
-        onAnadir(dia, texto.trim());
-        setTexto("");
-      }}
+    <Ficha
+      className={clsx(
+        "flex min-h-[12rem] flex-col gap-2 px-3.5 py-3",
+        esHoy && "border-[3px] border-acento-vivo bg-acento-fondo",
+        pasado && !esHoy && "opacity-90",
+      )}
     >
-      <label htmlFor={`obj-${dia}`} className="sr-only">
-        Añadir objetivo para el {etiqueta} {fechaCorta(dia)}
-      </label>
-      <input
-        id={`obj-${dia}`}
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        placeholder="Añadir…"
-        className="min-w-0 flex-1 rounded-pliegue border border-linea bg-papel-alto px-2 py-1.5 text-[0.85rem]"
-      />
+      <div className="flex items-baseline justify-between gap-2 px-0.5">
+        <span className={clsx("text-[0.9rem] font-semibold first-letter:uppercase", esHoy ? "text-acento" : "text-tinta")}>
+          {nombre}
+          {esHoy ? <span className="ml-1.5 text-[0.75rem] font-normal">· hoy</span> : null}
+        </span>
+        {!ancho ? (
+          <span className="text-[0.78rem] text-apagado" data-numerico>
+            {fechaCorta(dia)}
+          </span>
+        ) : null}
+      </div>
+
+      <ul className={clsx("flex flex-col gap-1.5", ancho && "sm:grid sm:grid-cols-2")}>
+        {entradas.map((e) => {
+          const s = SECCIONES[e.tipo];
+          const hecho = e.estado === "hecho";
+          return (
+            <li key={e.clave} className="flex items-stretch gap-1">
+              {e.origen === "objetivo" && e.objetivoId ? (
+                <button
+                  type="button"
+                  onClick={() => alternarObjetivo(e.objetivoId!)}
+                  aria-pressed={hecho}
+                  className={clsx(
+                    "inline-flex w-9 shrink-0 items-center justify-center rounded-[10px] border",
+                    hecho ? "border-transparent bg-visto-fondo" : "border-linea bg-papel-alto hover:border-borde",
+                  )}
+                >
+                  {hecho ? <Visto className="h-4 w-4" animado={false} /> : null}
+                  <span className="sr-only">
+                    {hecho ? "Desmarcar" : "Marcar como hecho"}: {e.texto}
+                  </span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => onPulsar(e)}
+                className={clsx(
+                  "flex min-h-10 flex-1 items-center gap-2 rounded-[10px] border-l-[4px] px-2.5 py-1.5 text-left text-[0.84rem] font-bold leading-snug transition-colors",
+                  s.borde,
+                  hecho ? "bg-papel-franja text-apagado" : clsx(s.fondo, "text-tinta hover:brightness-95"),
+                  e.estado === "atrasado" && "outline outline-1 outline-margen",
+                )}
+              >
+                {hecho && e.origen !== "objetivo" ? (
+                  <Visto className={clsx("h-3.5 w-3.5 shrink-0", s.texto)} animado={false} tono="text-current" />
+                ) : null}
+                <span className={clsx("flex-1", hecho && e.origen === "objetivo" && "line-through")}>
+                  {textoDeEntrada(e, temas)}
+                  {e.estado === "atrasado" && e.diasDeRetraso ? (
+                    <span className="block text-[0.74rem] font-semibold text-margen">
+                      {e.diasDeRetraso} {e.diasDeRetraso === 1 ? "día" : "días"} tarde
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
       <button
-        type="submit"
-        className="rounded-pliegue border border-linea bg-papel-alto px-2 text-[0.9rem] text-texto hover:border-tinta"
+        type="button"
+        onClick={onAnadir}
+        className="mt-auto min-h-10 rounded-full border-2 border-dashed border-linea text-[0.85rem] font-bold text-apagado hover:border-borde hover:text-tinta"
       >
-        +<span className="sr-only">Añadir objetivo</span>
+        + Añadir<span className="sr-only"> objetivo el {fechaLarga(dia)}</span>
       </button>
-    </form>
+    </Ficha>
+  );
+}
+
+function DiaMes({
+  dia,
+  hoy,
+  delMes,
+  abierto,
+  entradas,
+  onAbrir,
+}: {
+  dia: string;
+  hoy: string;
+  delMes: boolean;
+  abierto: boolean;
+  entradas: EntradaAgenda[];
+  onAbrir: () => void;
+}) {
+  const esHoy = dia === hoy;
+  const visibles = entradas.slice(0, 4);
+  const resto = entradas.length - visibles.length;
+  const atrasado = entradas.some((e) => e.estado === "atrasado");
+
+  return (
+    <button
+      type="button"
+      onClick={onAbrir}
+      aria-expanded={abierto}
+      className={clsx(
+        "flex min-h-[5.5rem] flex-col gap-1.5 rounded-[14px] p-1.5 text-left transition-colors sm:p-2",
+        esHoy
+          ? "border-[3px] border-acento-vivo bg-acento-fondo"
+          : abierto
+            ? "border-[3px] border-borde bg-papel-alto"
+            : delMes
+              ? "border-2 border-linea bg-papel-alto hover:border-borde"
+              : "border-2 border-transparent bg-papel-franja",
+      )}
+    >
+      <span
+        className={clsx(
+          "inline-flex h-7 w-7 items-center justify-center rounded-full text-[0.85rem] font-extrabold",
+          esHoy ? "text-acento" : delMes ? "text-tinta" : "text-tenue",
+          atrasado && "ring-2 ring-margen",
+        )}
+        data-numerico
+      >
+        {Number(dia.slice(8))}
+      </span>
+      <span className="flex flex-col gap-1">
+        {visibles.map((e) => (
+          <span
+            key={e.clave}
+            aria-hidden="true"
+            className={clsx(
+              "h-2 rounded-full",
+              SECCIONES[e.tipo].lleno,
+              e.estado === "hecho" && "opacity-40",
+            )}
+          />
+        ))}
+        {resto > 0 ? <span className="text-[0.7rem] text-apagado">+{resto}</span> : null}
+      </span>
+      <span className="sr-only">
+        {fechaLarga(dia)}: {entradas.length === 0 ? "nada" : `${entradas.length} cosas`}
+        {atrasado ? ", con algo atrasado" : ""}
+      </span>
+    </button>
   );
 }

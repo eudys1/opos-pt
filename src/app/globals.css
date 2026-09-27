@@ -1,90 +1,174 @@
 @import "tailwindcss";
 
 /*
-  Sistema de diseño "Cuaderno" (dirección A).
-  Papel hueso, tinta azul, margen rojo. La elevación se hace con filete
-  de 1 px, nunca con sombras difusas.
+  Sistema de diseño: la dirección B ("Racha"), casi tal cual, con las
+  correcciones que se hablaron:
+    - Verde, ámbar y rojo son SIGNIFICADO (bien, a medias, mal), nunca color
+      de sección. Por eso Practicar y Fallos van en turquesa y Supuestos en
+      índigo, en vez del verde, el rojo y el amarillo del croquis.
+    - El naranja vivo no aguanta texto blanco encima (2,8:1): los botones
+      naranjas llevan el texto en marrón oscuro, que da 5,5:1.
+    - Tema claro por defecto. El oscuro existe, pero solo se aplica si se
+      elige a mano con el botón del sol y la luna.
+
+  Los nombres de los tokens vienen del primer diseño y se conservan para no
+  tocar cada componente: papel = fondos, tinta = texto principal, margen =
+  error y retraso, visto = hecho. `borde` es el marrón grueso de B.
 */
 @theme {
-  --color-papel: #f7f2e7;
-  --color-papel-alto: #fffdf7;
-  --color-papel-franja: #f2ebdb;
-  --color-tinta: #1b2a4a;
-  /* Tinta más apretada: el estado hover de los botones principales. */
-  --color-tinta-fuerte: #16223c;
-  --color-tinta-suave: #3e4a5c;
-  --color-texto: #4a4540;
-  --color-apagado: #5f594e;
-  --color-tenue: #6f6759;
-  --color-linea: #e2d9c6;
-  --color-linea-suave: #efe7d6;
-  --color-margen: #b03a2b;
-  --color-margen-hilo: #d9836f;
-  --color-margen-fondo: #fbeeea;
-  --color-visto: #2f6b4f;
-  --color-visto-fondo: #eaf1ec;
+  --color-papel: #fff8f0;
+  --color-papel-alto: #ffffff;
+  --color-papel-franja: #fdefe0;
+  --color-tinta: #431407;
+  --color-tinta-fuerte: #2a0c04;
+  --color-tinta-suave: #5c2a14;
+  --color-texto: #6b3d24;
+  --color-apagado: #7c4a2d;
+  --color-tenue: #8a5a3c;
+  --color-linea: #efd8c2;
+  --color-linea-suave: #f7e8d8;
+  --color-borde: #431407;
+  --color-sombra: #ffd6a5;
 
-  --font-display: var(--fuente-display), Georgia, "Times New Roman", serif;
+  --color-acento: #c2410c;
+  --color-acento-vivo: #ff6b35;
+  --color-acento-fondo: #ffe4d3;
+  --color-boton: #ff6b35;
+  --color-boton-hover: #ff7d4d;
+  --color-boton-sombra: #c2410c;
+  --color-sobre-boton: #431407;
+
+  --color-margen: #b91c1c;
+  --color-margen-hilo: #fca5a5;
+  --color-margen-fondo: #fee2e2;
+  --color-visto: #15803d;
+  --color-visto-vivo: #16a34a;
+  --color-visto-fondo: #dcfce7;
+  --color-aviso: #a16207;
+  --color-aviso-vivo: #eab308;
+  --color-aviso-fondo: #fef9c3;
+
+  /*
+    Un color por sección, el mismo en el menú, el planificador y toda la app.
+    ÚNICA fuente de verdad: si se cambia aquí, cambia en toda la web.
+    texto = letras y bordes · vivo = rellenos y cuadraditos · fondo = tintes.
+  */
+  --color-sec-temario: #6d28d9;
+  --color-sec-temario-vivo: #7c3aed;
+  --color-sec-temario-fondo: #ede9fe;
+  --color-sec-repaso: #0369a1;
+  --color-sec-repaso-vivo: #0ea5e9;
+  --color-sec-repaso-fondo: #e0f2fe;
+  --color-sec-otro: #0f766e;
+  --color-sec-otro-vivo: #14b8a6;
+  --color-sec-otro-fondo: #ccfbf1;
+  --color-sec-practica: #4338ca;
+  --color-sec-practica-vivo: #6366f1;
+  --color-sec-practica-fondo: #e0e7ff;
+  --color-sec-fallos: #be123c;
+  --color-sec-fallos-vivo: #e11d48;
+  --color-sec-fallos-fondo: #ffe4e6;
+  --color-sec-supuesto: #4d7c0f;
+  --color-sec-supuesto-vivo: #84cc16;
+  --color-sec-supuesto-fondo: #ecfccb;
+  --color-sec-simulacro: #be185d;
+  --color-sec-simulacro-vivo: #db2777;
+  --color-sec-simulacro-fondo: #fce7f3;
+  --color-sec-progreso: #a21caf;
+  --color-sec-progreso-vivo: #c026d3;
+  --color-sec-progreso-fondo: #fae8ff;
+  --color-sec-normativa: #7c4a2d;
+  --color-sec-normativa-vivo: #b9805a;
+  --color-sec-normativa-fondo: #f5e6d3;
+
+  --font-display: var(--fuente-display), ui-rounded, ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
 
-  --radius-pliegue: 3px;
-  --radius-ficha: 4px;
+  --radius-pliegue: 12px;
+  --radius-ficha: 22px;
 
-  --text-titulo: 3.875rem;
-  --text-titulo--line-height: 1.02;
-  --text-titulo--letter-spacing: -0.02em;
+  /* La sombra de B: desplazada y sin difuminar, en melocotón. */
+  --shadow-ficha: 5px 5px 0 var(--color-sombra);
+  --shadow-flota: 8px 8px 0 var(--color-sombra);
+  --shadow-boton: 0 4px 0 var(--color-boton-sombra);
+
+  --text-titulo: 3.25rem;
+  --text-titulo--line-height: 1.05;
+  --text-titulo--letter-spacing: -0.01em;
 }
 
 /*
-  Cuaderno de noche. No es un tema oscuro neutro: es el mismo cuaderno con tinta
-  clara sobre papel azulado, así que se conservan el margen rojo y el visto verde,
-  aclarados lo justo para que contrasten sobre fondo oscuro.
-  Se aplica por preferencia del sistema, salvo que la persona haya elegido claro,
-  y siempre que haya elegido oscuro a mano.
+  Oscuro, solo si se elige a mano. El mismo cuaderno de noche: fondo marrón
+  muy oscuro (nunca negro), tarjetas un paso más claras, los bordes gruesos en
+  crema apagado y la sombra desplazada en naranja tostado.
 */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) {
-    --color-papel: #151c28;
-    --color-papel-alto: #1b2432;
-    --color-papel-franja: #121822;
-    --color-tinta: #f2eada;
-    --color-tinta-fuerte: #fdf8ee;
-    --color-tinta-suave: #cfc7b8;
-    --color-texto: #c3bcae;
-    --color-apagado: #9a9385;
-    --color-tenue: #8a8376;
-    --color-linea: #2b3547;
-    --color-linea-suave: #222b3a;
-    --color-margen: #ef8f77;
-    --color-margen-hilo: #a4594a;
-    --color-margen-fondo: #2a1f1e;
-    --color-visto: #86bd96;
-    --color-visto-fondo: #17251c;
-    color-scheme: dark;
-  }
-}
-
 :root[data-tema="oscuro"] {
-  --color-papel: #151c28;
-  --color-papel-alto: #1b2432;
-  --color-papel-franja: #121822;
-  --color-tinta: #f2eada;
-  --color-tinta-fuerte: #fdf8ee;
-  --color-tinta-suave: #cfc7b8;
-  --color-texto: #c3bcae;
-  --color-apagado: #9a9385;
-  --color-tenue: #8a8376;
-  --color-linea: #2b3547;
-  --color-linea-suave: #222b3a;
-  --color-margen: #ef8f77;
-  --color-margen-hilo: #a4594a;
-  --color-margen-fondo: #2a1f1e;
-  --color-visto: #86bd96;
-  --color-visto-fondo: #17251c;
+  /*
+    Noche cálida: fondo cacao muy oscuro (nunca negro), tarjetas un paso más
+    claras que se separan por tono, bordes discretos en vez del marrón grueso
+    del día (en oscuro, un borde claro y grueso se ve duro) y la misma sombra
+    desplazada de B, en naranja tostado.
+  */
+  --color-papel: #191310;
+  --color-papel-alto: #251d18;
+  --color-papel-franja: #1f1814;
+  --color-tinta: #fbeee3;
+  --color-tinta-fuerte: #ffffff;
+  --color-tinta-suave: #f1dccb;
+  --color-texto: #e6d0bf;
+  --color-apagado: #c8ad98;
+  --color-tenue: #b99d87;
+  --color-linea: #3b2f27;
+  --color-linea-suave: #2d241e;
+  --color-borde: #4d3d32;
+  --color-sombra: #4a2310;
+  --color-acento: #ffa574;
+  --color-acento-vivo: #ff7a45;
+  --color-acento-fondo: #3a2114;
+  --color-boton: #ff8450;
+  --color-boton-hover: #ff9868;
+  --color-boton-sombra: #a8421a;
+  --color-sobre-boton: #2a0c04;
+  --color-margen: #fca5a5;
+  --color-margen-hilo: #7f1d1d;
+  --color-margen-fondo: #3b1717;
+  --color-visto: #86efac;
+  --color-visto-vivo: #22c55e;
+  --color-visto-fondo: #143321;
+  --color-aviso: #fde047;
+  --color-aviso-vivo: #eab308;
+  --color-aviso-fondo: #3a3212;
+  --color-sec-temario: #c4b5fd;
+  --color-sec-temario-vivo: #7c3aed;
+  --color-sec-temario-fondo: #2a2143;
+  --color-sec-repaso: #7dd3fc;
+  --color-sec-repaso-vivo: #0ea5e9;
+  --color-sec-repaso-fondo: #13293a;
+  --color-sec-otro: #5eead4;
+  --color-sec-otro-vivo: #14b8a6;
+  --color-sec-otro-fondo: #10302c;
+  --color-sec-practica: #a5b4fc;
+  --color-sec-practica-vivo: #6366f1;
+  --color-sec-practica-fondo: #22254a;
+  --color-sec-fallos: #fda4af;
+  --color-sec-fallos-vivo: #e11d48;
+  --color-sec-fallos-fondo: #3b161e;
+  --color-sec-supuesto: #bef264;
+  --color-sec-supuesto-vivo: #65a30d;
+  --color-sec-supuesto-fondo: #1f2e12;
+  --color-sec-simulacro: #f9a8d4;
+  --color-sec-simulacro-vivo: #db2777;
+  --color-sec-simulacro-fondo: #3d1629;
+  --color-sec-progreso: #f0abfc;
+  --color-sec-progreso-vivo: #c026d3;
+  --color-sec-progreso-fondo: #361a3b;
+  --color-sec-normativa: #e8c3a7;
+  --color-sec-normativa-vivo: #b9805a;
+  --color-sec-normativa-fondo: #33261d;
   color-scheme: dark;
 }
 
-/* Pauta del cuaderno: se aplica a las fichas que imitan una hoja rayada. */
+/* Pauta de hoja rayada: la conserva el editor de temas, donde ayuda a leer. */
 @utility pauta {
   background-image: repeating-linear-gradient(
     to bottom,
@@ -107,25 +191,61 @@
 
   h1,
   h2,
-  h3 {
+  h3,
+  h4 {
     font-family: var(--font-display);
     font-weight: 600;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /*
+    Todo lo que se puede pulsar enseña la mano. Tailwind 4 deja los botones
+    con el cursor normal, y así nada parecía pulsable. Lo desactivado, con el
+    cursor de "no se puede".
+  */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="radio"],
+  [role="checkbox"],
+  a[href],
+  summary,
+  select,
+  label[for],
+  label:has(> input),
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="date"],
+  input[type="range"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"],
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
   }
 
   ::selection {
-    background-color: var(--color-margen-hilo);
-    color: var(--color-papel-alto);
+    background-color: var(--color-acento-vivo);
+    color: var(--color-tinta-fuerte);
   }
 
-  /* Un foco visible de verdad, del color del margen, en todo lo que se pueda enfocar. */
+  /* Foco visible de verdad, en todo lo que se pueda enfocar. */
   :focus-visible {
-    outline: 2px solid var(--color-margen);
+    outline: 3px solid var(--color-acento);
     outline-offset: 3px;
-    border-radius: 2px;
+    border-radius: 6px;
   }
 
-  /* Tabulares en todo dato numérico: las columnas de repasos no deben bailar. */
+  /* Tabulares en todo dato numérico: las columnas no deben bailar. */
   table,
   time,
   [data-numerico] {
@@ -144,29 +264,78 @@
   }
 }
 
-/* Trazos escritos a mano: el visto se dibuja en vez de aparecer de golpe. */
 @layer utilities {
+  /* El visto se dibuja en vez de aparecer de golpe. */
   .trazo {
     stroke-dasharray: 28;
     stroke-dashoffset: 28;
     animation: escribir 420ms cubic-bezier(0.32, 0.72, 0.35, 1) forwards;
   }
 
+  /* Entrada de pantallas y bloques: sube un poco y aparece. Cola larga, sin rebote. */
   .entra {
-    animation: entrar 520ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+    animation: entrar 480ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
   }
 
-  /* Subrayado que se traza al pasar por encima, como con regla. */
+  /* Subrayado que se traza al pasar por encima. */
   .regla {
     background-image: linear-gradient(currentColor, currentColor);
-    background-size: 0% 1px;
+    background-size: 0% 2px;
     background-position: 0 100%;
     background-repeat: no-repeat;
     transition: background-size 220ms cubic-bezier(0.22, 0.68, 0.3, 1);
   }
   .regla:hover,
   .regla:focus-visible {
-    background-size: 100% 1px;
+    background-size: 100% 2px;
+  }
+
+  /*
+    Tarjeta que se puede pulsar entera: al pasar, se levanta hacia la sombra,
+    como en B. Al pulsar, se hunde.
+  */
+  .levanta {
+    transition:
+      transform 160ms cubic-bezier(0.22, 0.68, 0.3, 1),
+      box-shadow 160ms cubic-bezier(0.22, 0.68, 0.3, 1);
+  }
+  .levanta:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 7px 7px 0 var(--color-sombra);
+  }
+  .levanta:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--color-sombra);
+  }
+}
+
+/*
+  El tramo del paso en marcha de una barra de progreso: va y viene para que se
+  vea que sigue trabajando. Con movimiento reducido se queda a media barra.
+*/
+.progreso-vivo {
+  width: 40%;
+  animation: progreso-vivo 1.6s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progreso-vivo {
+    animation: none;
+    left: 0;
+    width: 50%;
+  }
+  .levanta:hover,
+  .levanta:active {
+    transform: none;
+  }
+}
+
+@keyframes progreso-vivo {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
   }
 }
 
@@ -179,10 +348,127 @@
 @keyframes entrar {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/*
+  Un acordeón (details) sin el triángulo del navegador: el indicador lo pone
+  cada componente. Lo que se despliega entra suave, como el resto de la app.
+*/
+.acordeon > summary::-webkit-details-marker {
+  display: none;
+}
+.acordeon[open] > :not(summary) {
+  animation: entrar 320ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+}
+
+/*
+  El párrafo al que lleva un enlace de cita (/tema/N#párrafo) se ilumina con el
+  violeta de Mi temario y se apaga despacio: se ve dónde has caído sin que se
+  quede marcado para siempre.
+*/
+.destino:target,
+.destino.destacado {
+  border-radius: 10px;
+  animation: destino 2.6s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+@keyframes destino {
+  0%,
+  45% {
+    background-color: var(--color-sec-temario-fondo);
+    box-shadow: 0 0 0 8px var(--color-sec-temario-fondo);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .destino:target,
+  .destino.destacado {
+    animation: none;
+    background-color: var(--color-sec-temario-fondo);
+    box-shadow: 0 0 0 8px var(--color-sec-temario-fondo);
+  }
+}
+
+/* Las casillas del mapa del temario se llenan una tras otra, de abajo arriba. */
+.casilla-llena {
+  animation: llenar 420ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+}
+@keyframes llenar {
+  from {
+    opacity: 0;
+    transform: scaleY(0.2);
+  }
+}
+
+/*
+  Revelado al hacer scroll, sin JavaScript: con animaciones ligadas al scroll
+  (animation-timeline: view()) lo que entra en pantalla sube y aparece. Donde
+  el navegador no las soporta, se ve todo quieto desde el principio: nunca se
+  queda nada escondido.
+*/
+@supports (animation-timeline: view()) {
+  .revela {
+    animation: revelar linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 55%;
+  }
+}
+@keyframes revelar {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+  El camino del temario de la portada se rellena tema a tema, como se rellena
+  de verdad en dos años de oposición. Cada punto lleva su retraso en --i.
+*/
+.punto {
+  animation: punto 520ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+  animation-delay: calc(420ms + var(--i, 0) * 38ms);
+}
+@keyframes punto {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+/* Escalonado: cada hijo entra un poco después que el anterior. */
+.escalona > * {
+  animation: entrar 520ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+}
+.escalona > :nth-child(2) { animation-delay: 70ms; }
+.escalona > :nth-child(3) { animation-delay: 140ms; }
+.escalona > :nth-child(4) { animation-delay: 210ms; }
+.escalona > :nth-child(5) { animation-delay: 280ms; }
+.escalona > :nth-child(6) { animation-delay: 350ms; }
+.escalona > :nth-child(n + 7) { animation-delay: 420ms; }
+
+/* Al cambiar de pantalla dentro de la app, el contenido entra suave. */
+.pantalla {
+  animation: entrar 380ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revela,
+  .punto,
+  .escalona > *,
+  .pantalla,
+  .casilla-llena {
+    animation: none !important;
   }
 }

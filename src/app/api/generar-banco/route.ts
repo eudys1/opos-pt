@@ -4,11 +4,16 @@ import { generarBanco, type TipoPedido } from "@/ia/generar-banco";
 import { mensajeDeError, prepararLlamada, registrarUso } from "@/ia/guardas";
 
 /**
- * Crea el banco de preguntas de un tema a partir de su texto.
+ * Crea preguntas de un tema a partir de su texto.
  *
  * Va por grupos de tipos, no de una tacada: cada petición tiene que caber
  * holgadamente en el límite de tiempo de una función de Vercel (60 s en el plan
  * gratuito), así que el cliente llama dos veces y enseña el progreso.
+ *
+ * Generar más SUMA al banco: lo creado antes no se borra, porque cada pregunta
+ * ya costó una llamada a la IA. Para que sume de verdad, se le pasan a la IA los
+ * enunciados existentes y se descartan los repetidos al guardar. Borrar el
+ * banco de un tema es una acción aparte y explícita (`reemplazar: true`).
  */
 
 export const maxDuration = 60;
@@ -25,13 +30,13 @@ export async function POST(peticion: Request) {
   let temaId: string | undefined;
   let grupo: keyof typeof GRUPOS = "escritas";
   let cuantas = 10;
-  let reemplazar = true;
+  let reemplazar = false;
   try {
     const cuerpo = (await peticion.json()) as Record<string, unknown>;
     if (typeof cuerpo.temaId === "string") temaId = cuerpo.temaId;
     if (cuerpo.grupo === "escritas" || cuerpo.grupo === "tarjetas") grupo = cuerpo.grupo;
     if (typeof cuerpo.cuantas === "number") cuantas = Math.min(20, Math.max(4, cuerpo.cuantas));
-    if (cuerpo.reemplazar === false) reemplazar = false;
+    if (cuerpo.reemplazar === true) reemplazar = true;
   } catch {
     return NextResponse.json({ error: "Petición mal formada." }, { status: 400 });
   }
@@ -62,15 +67,8 @@ export async function POST(peticion: Request) {
 
   try {
     const tipos = GRUPOS[grupo];
-    const { items, descartadas, uso } = await generarBanco(
-      ctx.ia,
-      { numero: tema.numero, titulo: tema.titulo, texto },
-      cuantas,
-      tipos,
-    );
 
-    // Se reemplaza el banco anterior de estos tipos: así no se acumulan
-    // preguntas de una versión de los apuntes que ya no existe.
+    // Solo con reemplazar explícito: borrar es tirar dinero ya gastado.
     if (reemplazar) {
       await ctx.supabase
         .from("items")
@@ -79,6 +77,33 @@ export async function POST(peticion: Request) {
         .eq("origen", "ia")
         .in("tipo", tipos);
     }
+
+    const { data: existentes } = await ctx.supabase
+      .from("items")
+      .select("enunciado")
+      .eq("tema_id", tema.id)
+      .is("variante_de", null)
+      .in("tipo", tipos);
+    const yaHay = (existentes ?? []).map((e) => e.enunciado as string);
+    const vistos = new Set(yaHay.map(clave));
+
+    const generado = await generarBanco(
+      ctx.ia,
+      { numero: tema.numero, titulo: tema.titulo, texto },
+      cuantas,
+      tipos,
+      yaHay,
+    );
+    const { descartadas, uso } = generado;
+
+    // Por si la IA repite alguna pese a la lista: fuera las que ya estaban.
+    const items = generado.items.filter((item) => {
+      const k = clave(item.enunciado);
+      if (vistos.has(k)) return false;
+      vistos.add(k);
+      return true;
+    });
+    const repetidas = generado.items.length - items.length;
 
     if (items.length === 0) {
       return NextResponse.json(
@@ -99,6 +124,7 @@ export async function POST(peticion: Request) {
         opciones: item.tipo === "test" ? item.opciones : null,
         correcta: item.tipo === "test" ? item.correcta : null,
         respuesta: item.tipo === "test" ? null : item.respuesta,
+        pide: item.pide.trim() || null,
         explicacion: item.explicacion,
         cita: item.cita,
         origen: "ia",
@@ -114,13 +140,25 @@ export async function POST(peticion: Request) {
 
     return NextResponse.json({
       creadas: items.length,
-      descartadas,
+      descartadas: descartadas + repetidas,
+      total: yaHay.length + items.length,
       porTipo: contarPorTipo(items),
       gastoMes,
     });
   } catch (error) {
     return NextResponse.json({ error: mensajeDeError(error) }, { status: 500 });
   }
+}
+
+/** Para comparar enunciados: sin mayúsculas, tildes ni puntuación. */
+function clave(texto: string): string {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\p{L}\p{N} ]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function contarPorTipo(items: { tipo: string }[]): Record<string, number> {

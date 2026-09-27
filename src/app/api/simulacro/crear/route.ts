@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prepararSesion } from "@/ia/guardas";
-import { sortearSupuestos, sortearTemas } from "@/nucleo/sorteo";
+import { bomboDeLaRonda, sortearSupuestos, sortearTemas } from "@/nucleo/sorteo";
 import { CONFIGURACION_ANDALUCIA } from "@/nucleo/tipos";
 
 /**
@@ -9,6 +9,10 @@ import { CONFIGURACION_ANDALUCIA } from "@/nucleo/tipos";
  * El reloj empieza en el servidor (`iniciado_en` es `now()` de la base de
  * datos), así que ni cerrar la pestaña ni cambiar la hora del ordenador dan
  * tiempo extra.
+ *
+ * El sorteo va por rondas: lo que ya se ha desarrollado en un simulacro no
+ * vuelve a salir hasta haber hecho todo lo demás. Así se acaban haciendo todos
+ * los temas y todos los supuestos sin repetir.
  */
 
 type Modalidad = "tema" | "supuesto" | "completo";
@@ -22,8 +26,14 @@ export async function POST(peticion: Request) {
 
   let modalidad: Modalidad = "tema";
   let trampa = false;
+  let reloj: "real" | "flexible" = "real";
   try {
-    const cuerpo = (await peticion.json()) as { modalidad?: unknown; trampa?: unknown };
+    const cuerpo = (await peticion.json()) as {
+      modalidad?: unknown;
+      trampa?: unknown;
+      reloj?: unknown;
+    };
+    if (cuerpo.reloj === "flexible") reloj = "flexible";
     if (cuerpo.modalidad === "tema" || cuerpo.modalidad === "supuesto" || cuerpo.modalidad === "completo") {
       modalidad = cuerpo.modalidad;
     }
@@ -46,6 +56,21 @@ export async function POST(peticion: Request) {
       : modalidad === "tema"
         ? config.minutosSoloTema
         : config.minutosSoloSupuesto;
+
+  // Lo ya desarrollado, del simulacro más antiguo al más reciente.
+  const [{ data: previos }, { data: elegidos }] = await Promise.all([
+    supabase.from("simulacros").select("id, iniciado_en").neq("estado", "abandonado"),
+    supabase
+      .from("simulacro_partes")
+      .select("simulacro_id, tipo, elegido_id")
+      .not("elegido_id", "is", null),
+  ]);
+  const inicio = new Map((previos ?? []).map((sim) => [sim.id, sim.iniciado_en as string]));
+  const historial = (tipo: "tema" | "supuesto") =>
+    (elegidos ?? [])
+      .filter((e) => e.tipo === tipo && inicio.has(e.simulacro_id))
+      .sort((a, b) => inicio.get(a.simulacro_id)!.localeCompare(inicio.get(b.simulacro_id)!))
+      .map((e) => e.elegido_id as string);
 
   const partes: {
     tipo: "tema" | "supuesto";
@@ -78,16 +103,17 @@ export async function POST(peticion: Request) {
 
     const porTema = new Map((dominios ?? []).map((d) => [d.tema_id, Number(d.dominio ?? 0)]));
 
-    const sorteados = sortearTemas(
+    const { bombo } = bomboDeLaRonda(
       estudiados.map((t) => ({
         id: t.id,
         numero: t.numero,
         titulo: t.titulo,
         dominio: porTema.get(t.id),
       })),
+      historial("tema"),
       config.temasSorteados,
-      { trampa },
     );
+    const sorteados = sortearTemas(bombo, config.temasSorteados, { trampa });
 
     partes.push({
       tipo: "tema",
@@ -113,7 +139,12 @@ export async function POST(peticion: Request) {
       );
     }
 
-    const sorteados = sortearSupuestos(supuestos ?? [], config.supuestosSorteados);
+    const { bombo } = bomboDeLaRonda(
+      supuestos ?? [],
+      historial("supuesto"),
+      config.supuestosSorteados,
+    );
+    const sorteados = sortearSupuestos(bombo, config.supuestosSorteados);
     partes.push({
       tipo: "supuesto",
       // Sin etiquetas: en el sorteo solo se ve el enunciado, como en el examen.
@@ -128,6 +159,7 @@ export async function POST(peticion: Request) {
       modalidad,
       duracion_s: duracion * 60,
       trampa,
+      reloj,
       estado: "en_curso",
     })
     .select("id, iniciado_en, duracion_s")

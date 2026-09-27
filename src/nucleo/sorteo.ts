@@ -48,6 +48,74 @@ export function sortearTemas(
 }
 
 /**
+ * Qué se ha hecho ya en la ronda actual.
+ *
+ * Se recorre el historial de lo elegido en simulacros, del más antiguo al más
+ * reciente. Cuando se han hecho todos los disponibles, la ronda se cierra y se
+ * empieza otra: así se van haciendo todos sin repetir, y al acabar vuelven
+ * todos al bombo.
+ */
+export function hechosEnLaRonda(historial: string[], disponibles: string[]): Set<string> {
+  const universo = new Set(disponibles);
+  let hechos = new Set<string>();
+  for (const id of historial) {
+    if (!universo.has(id)) continue;
+    hechos.add(id);
+    if (hechos.size >= universo.size) hechos = new Set();
+  }
+  return hechos;
+}
+
+export type Bombo<T> = {
+  /** Lo que entra en el sorteo. */
+  bombo: T[];
+  /** Cuántos quedan por hacer en esta ronda (antes de este sorteo). */
+  quedan: number;
+  /** Cuántos hay en total en la ronda. */
+  total: number;
+  /** true si faltaban bolas y se ha completado con alguno ya hecho. */
+  completadoConHechos: boolean;
+};
+
+/**
+ * El bombo de la ronda: solo lo que falta por hacer. Si quedan menos bolas de
+ * las que hay que sacar, se completa con lo ya hecho para poder elegir igual.
+ */
+export function bomboDeLaRonda<T extends { id: string }>(
+  disponibles: T[],
+  historial: string[],
+  cuantos: number,
+  azar: Azar = Math.random,
+): Bombo<T> {
+  const hechos = hechosEnLaRonda(
+    historial,
+    disponibles.map((d) => d.id),
+  );
+  const pendientes = disponibles.filter((d) => !hechos.has(d.id));
+
+  if (pendientes.length >= cuantos || pendientes.length === disponibles.length) {
+    return {
+      bombo: pendientes,
+      quedan: pendientes.length,
+      total: disponibles.length,
+      completadoConHechos: false,
+    };
+  }
+
+  const relleno = elegirSinRepetir(
+    disponibles.filter((d) => hechos.has(d.id)),
+    cuantos - pendientes.length,
+    azar,
+  );
+  return {
+    bombo: [...pendientes, ...relleno],
+    quedan: pendientes.length,
+    total: disponibles.length,
+    completadoConHechos: true,
+  };
+}
+
+/**
  * Tres supuestos lo más distintos posible: primero uno al azar y después los que
  * más lejos quedan de los ya elegidos (necesidad, curso y temas que tocan).
  */

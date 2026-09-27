@@ -1,23 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Ficha } from "@/components/ui/ficha";
-import { BotonEnlace } from "@/components/ui/boton";
+import { Boton, BotonEnlace } from "@/components/ui/boton";
 import { Marca } from "@/components/marcas";
 import { useSesion } from "@/datos/sesion";
 
 /**
- * La puerta: el cuaderno solo se abre con cuenta.
+ * La puerta: el cuaderno solo se abre con una cuenta de la lista.
  *
- * Antes se podía usar sin entrar, guardando en el navegador, y eso llevaba a
- * tener el estudio repartido entre dispositivos sin que nadie lo avisara.
- * Ahora es siempre la misma cuenta, esté donde esté.
+ * Dos comprobaciones: que haya sesión y que el correo esté permitido. La lista
+ * está en el servidor; se pregunta a /api/acceso una vez por sesión. Si no se
+ * puede preguntar (sin conexión), se deja pasar: los datos están protegidos
+ * igual por la RLS y por las rutas de la API, que también miran la lista.
  */
 export function Puerta({ children }: { children: ReactNode }) {
-  const { usuario, comprobando } = useSesion();
+  const { usuario, comprobando, salir } = useSesion();
+  const [permiso, setPermiso] = useState<{ id: string; ok: boolean } | null>(null);
 
-  if (comprobando) {
+  useEffect(() => {
+    if (!usuario) return;
+    let vivo = true;
+    fetch("/api/acceso")
+      .then((r) => {
+        if (vivo) setPermiso({ id: usuario.id, ok: r.status !== 403 });
+      })
+      .catch(() => {
+        if (vivo) setPermiso({ id: usuario.id, ok: true });
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [usuario]);
+
+  if (comprobando || (usuario && permiso?.id !== usuario.id)) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6">
         <p className="text-apagado">Comprobando tu sesión…</p>
@@ -25,7 +42,29 @@ export function Puerta({ children }: { children: ReactNode }) {
     );
   }
 
-  if (usuario) return <>{children}</>;
+  if (usuario && permiso?.ok) return <>{children}</>;
+
+  if (usuario && permiso && !permiso.ok) {
+    return (
+      <main
+        id="contenido"
+        className="mx-auto flex min-h-screen w-full max-w-lg flex-col justify-center gap-6 px-5 py-14 sm:px-8"
+      >
+        <Marca />
+        <h1 className="text-[2rem]">Esta cuenta no tiene acceso</h1>
+        <Ficha className="flex flex-col gap-3 px-6 py-6">
+          <p className="text-[0.98rem] leading-relaxed text-texto">
+            Has entrado como <strong className="font-extrabold">{usuario.email}</strong>, pero esta copia
+            del cuaderno es privada y ese correo no está dado de alta. Si crees que debería estarlo,
+            pídeselo a quien la ha montado.
+          </p>
+          <Boton tono="secundario" className="self-start" onClick={() => void salir()}>
+            Salir y entrar con otra cuenta
+          </Boton>
+        </Ficha>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -42,23 +81,17 @@ export function Puerta({ children }: { children: ReactNode }) {
       <Ficha className="flex flex-col gap-3 px-6 py-6">
         <p className="text-[0.98rem] leading-relaxed text-texto">
           El temario, las marcas de estudio, los fallos y los simulacros viven en tu cuenta, no en
-          este navegador. Así es el mismo cuaderno en el ordenador y en el móvil, y no se pierde si
-          borras los datos de navegación.
+          este navegador. Así es el mismo cuaderno en el ordenador y en el móvil.
         </p>
         <div className="mt-2 flex flex-wrap gap-3">
           <BotonEnlace href="/entrar" tamano="grande">
             Entrar
           </BotonEnlace>
-          <BotonEnlace href="/" tono="secundario" tamano="grande">
-            Ver qué es esto
+          <BotonEnlace href="/crear-cuenta" tono="secundario" tamano="grande">
+            Crear cuenta
           </BotonEnlace>
         </div>
       </Ficha>
-
-      <p className="text-[0.88rem] leading-relaxed text-apagado">
-        Esta copia es privada: solo pueden entrar los correos dados de alta. Si crees que el tuyo
-        debería estarlo y no te deja, pídeselo a quien la ha montado.
-      </p>
     </main>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import clsx from "clsx";
+import { leerReloj, type RelojSimulacro } from "@/nucleo/reloj";
 
 /**
  * El reloj del examen.
@@ -10,8 +11,9 @@ import clsx from "clsx";
  * sin sonidos, sin cambios de color de aviso y sin mensajes de ánimo. Solo el
  * tiempo, como un reloj de pared, y la opción de no mirarlo.
  *
- * La cuenta sale de `iniciadoEn` (hora del servidor) más la duración, así que
+ * La cuenta sale de datos del servidor (hora de inicio, pausas), así que
  * recargar la página, cerrarla o cambiar la hora del ordenador no da tiempo extra.
+ * En pausa, el número se queda quieto: no hay ningún aviso tampoco ahí.
  */
 
 export type ModoReloj = "restante" | "transcurrido" | "hora" | "oculto";
@@ -24,14 +26,12 @@ const MODOS: { valor: ModoReloj; texto: string }[] = [
 ];
 
 export function Cronometro({
-  iniciadoEn,
-  duracionSegundos,
+  reloj: datosReloj,
   modo,
   onCambiarModo,
   onTiempoAgotado,
 }: {
-  iniciadoEn: string;
-  duracionSegundos: number;
+  reloj: RelojSimulacro;
   modo: ModoReloj;
   onCambiarModo: (modo: ModoReloj) => void;
   onTiempoAgotado?: () => void;
@@ -43,10 +43,10 @@ export function Cronometro({
     return () => clearInterval(id);
   }, []);
 
-  const inicio = new Date(iniciadoEn).getTime();
-  const transcurrido = Math.max(0, Math.floor((ahora - inicio) / 1000));
-  const restante = duracionSegundos - transcurrido;
-  const agotado = restante <= 0;
+  const lectura = leerReloj(datosReloj, ahora);
+  const transcurrido = lectura.transcurridoS;
+  const restante = lectura.restanteS;
+  const agotado = lectura.agotado;
 
   useEffect(() => {
     if (agotado) onTiempoAgotado?.();
@@ -87,8 +87,8 @@ export function Cronometro({
             className={clsx(
               "min-h-11 rounded-pliegue border px-3 text-[0.82rem]",
               modo === opcion.valor
-                ? "border-tinta bg-papel-franja font-semibold"
-                : "border-linea bg-papel-alto text-texto hover:border-tinta",
+                ? "border-acento-vivo bg-acento-fondo font-extrabold text-acento"
+                : "border-linea bg-papel-alto text-texto hover:border-borde",
             )}
           >
             {opcion.texto}

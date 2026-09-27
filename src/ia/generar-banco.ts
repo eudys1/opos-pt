@@ -20,6 +20,11 @@ const Item = z.object({
   correcta: z.number(),
   /** Respuesta modelo para cortas, flashcards y leyes; vacío en las de test. */
   respuesta: z.string(),
+  /**
+   * Qué se pide en las flashcards y leyes, en dos o tres palabras: "Definición",
+   * "Quién la realiza", "Cita literal"… Vacío en test y cortas.
+   */
+  pide: z.string(),
   explicacion: z.string(),
   /** Fragmento literal del tema del que sale la pregunta. */
   cita: z.string(),
@@ -40,10 +45,11 @@ Reglas innegociables:
 Tipos:
 - "test": enunciado claro y cuatro opciones plausibles, solo una correcta. "correcta" es el índice (0 a 3). Los distractores deben ser creíbles, no absurdos. "respuesta" vacío.
 - "corta": pregunta de desarrollo breve. "respuesta" es la respuesta modelo en dos o tres frases. "opciones" vacío y "correcta" -1.
-- "flashcard": anverso en "enunciado" (un concepto), reverso en "respuesta" (su definición tal y como está en los apuntes). "opciones" vacío y "correcta" -1.
-- "ley": en "enunciado" va SOLO el nombre de la norma tal y como aparece en el texto (por ejemplo "Real Decreto 696/1995, de 28 de abril"); en "respuesta", de qué va y qué regula según los apuntes. Una por cada norma citada en el texto. "opciones" vacío y "correcta" -1.
+- "flashcard": el anverso ("enunciado") es una PREGUNTA COMPLETA que dice exactamente qué hay que contestar, nunca un concepto suelto. Mal: "Evaluación psicopedagógica". Bien: "¿Qué es la evaluación psicopedagógica?", "¿Quién realiza la evaluación psicopedagógica?", "¿Cuándo se revisa el dictamen de escolarización?". En "pide" pon en dos o tres palabras qué se pide: "Definición", "Quién la realiza", "Cuándo", "Para qué sirve", "Características", "Clasificación", "Diferencias"… El reverso ("respuesta") es lo que dicen los apuntes, sin añadir nada. "opciones" vacío y "correcta" -1.
+- "ley": para memorizar la norma TAL CUAL, que es como hay que citarla en el examen. En "enunciado" va SOLO el nombre corto de la norma tal y como aparece en el texto (por ejemplo "Decreto 147/2002"). En "respuesta" va el fragmento LITERAL de los apuntes que cita esa norma, copiado carácter a carácter, con su nombre completo, fecha y lo que regula (entre 12 y 80 palabras). En "pide" pon "Cita literal". "cita" es el mismo fragmento que "respuesta". Una por cada norma distinta citada en el texto. "opciones" vacío y "correcta" -1.
 
-En "explicacion" añade una frase que ayude a entender el porqué, sin salirte del texto.`;
+En "explicacion" añade una frase que ayude a entender el porqué, sin salirte del texto.
+En test y cortas, "pide" va vacío.`;
 
 export type ResultadoBanco = { items: ItemGenerado[]; descartadas: number; uso: Uso };
 
@@ -54,7 +60,17 @@ export async function generarBanco(
   tema: { numero: number; titulo: string; texto: string },
   cuantas = 10,
   tipos: TipoPedido[] = ["test", "corta", "flashcard", "ley"],
+  /** Enunciados que ya existen: no se repiten, para que generar más sume de verdad. */
+  evitar: string[] = [],
 ): Promise<ResultadoBanco> {
+  const lista = evitar
+    .slice(0, 120)
+    .map((e) => `- ${e}`)
+    .join("\n");
+  const yaHay =
+    evitar.length > 0
+      ? `\n\nYa existen estas preguntas. NO las repitas ni escribas otras que pregunten lo mismo con otras palabras; busca otros datos del texto:\n${lista}`
+      : "";
   const respuesta = await ia.messages.parse({
     model: MODELOS.banco,
     max_tokens: 16000,
@@ -65,7 +81,7 @@ export async function generarBanco(
         role: "user",
         content: `Tema ${tema.numero}: ${tema.titulo}
 
-Escribe unas ${cuantas} preguntas, SOLO de estos tipos: ${tipos.join(", ")}.${tipos.includes("ley") ? " Incluye una de tipo \"ley\" por cada norma citada en el texto." : ""}
+Escribe unas ${cuantas} preguntas, SOLO de estos tipos: ${tipos.join(", ")}.${tipos.includes("ley") ? " Incluye una de tipo \"ley\" por cada norma citada en el texto que no esté ya en la lista de abajo." : ""}${yaHay}
 
 --- APUNTES ---
 ${tema.texto}
@@ -117,5 +133,14 @@ export function esUtilizable(item: ItemGenerado, textoDelTema: string): boolean 
     return item.opciones.every((o) => o.trim().length > 0);
   }
 
-  return item.respuesta.trim().length > 0;
+  if (!item.respuesta.trim()) return false;
+
+  // En las de legislación la respuesta ES el texto literal: tiene que estar en
+  // los apuntes, porque es contra lo que se va a cotejar lo que se escriba.
+  if (item.tipo === "ley") {
+    const respuesta = normalizar(item.respuesta);
+    return respuesta.split(" ").length >= 6 && normalizar(textoDelTema).includes(respuesta);
+  }
+
+  return true;
 }

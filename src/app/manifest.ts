@@ -12,7 +12,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description:
       "Registra lo que estudias, repasa cuando toca y haz simulacros con el reloj del examen real.",
     lang: "es",
-    start_url: "/registro",
+    start_url: "/inicio",
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",

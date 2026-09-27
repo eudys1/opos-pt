@@ -2,6 +2,7 @@ import { Navegacion } from "@/components/navegacion";
 import { ProveedorCuaderno } from "@/datos/almacen";
 import { ProveedorSesion } from "@/datos/sesion";
 import { AvisoCobertura } from "@/components/aviso-cobertura";
+import { AvisoTareas } from "@/components/aviso-tareas";
 import { Puerta } from "@/components/puerta";
 
 export default function LayoutApp({ children }: LayoutProps<"/">) {
@@ -18,6 +19,8 @@ export default function LayoutApp({ children }: LayoutProps<"/">) {
               </main>
             </div>
           </div>
+          {/* Lo que sigue trabajando aunque cambies de sección. */}
+          <AvisoTareas />
         </Puerta>
       </ProveedorSesion>
     </ProveedorCuaderno>

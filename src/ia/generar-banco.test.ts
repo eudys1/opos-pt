@@ -13,6 +13,7 @@ function item(parcial: Partial<ItemGenerado> = {}): ItemGenerado {
     opciones: [],
     correcta: -1,
     respuesta: "Cuando precisa ayudas o recursos que no son los habituales.",
+    pide: "",
     explicacion: "Es la definición que recogen los apuntes.",
     cita: "Un alumno tiene necesidades educativas especiales cuando precisa ayudas o recursos",
     ...parcial,
@@ -57,5 +58,31 @@ describe("esUtilizable", () => {
 
   it("exige respuesta modelo en las que no son de test", () => {
     expect(esUtilizable(item({ respuesta: "  " }), TEXTO)).toBe(false);
+  });
+
+  it("en legislación, la respuesta tiene que ser el texto literal de los apuntes", () => {
+    const ley: Partial<ItemGenerado> = {
+      tipo: "ley",
+      enunciado: "Ley Orgánica 1/1990",
+      pide: "Cita literal",
+      cita: "La Ley Orgánica 1/1990, de 3 de octubre, de Ordenación General del Sistema Educativo",
+    };
+    expect(
+      esUtilizable(
+        item({
+          ...ley,
+          respuesta:
+            "La Ley Orgánica 1/1990, de 3 de octubre, de Ordenación General del Sistema Educativo",
+        }),
+        TEXTO,
+      ),
+    ).toBe(true);
+    // Un resumen con otras palabras no vale: no se podría cotejar contra él.
+    expect(
+      esUtilizable(
+        item({ ...ley, respuesta: "Es la LOGSE, que ordenó el sistema educativo en 1990 y cambió el modelo." }),
+        TEXTO,
+      ),
+    ).toBe(false);
   });
 });

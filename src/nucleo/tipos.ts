@@ -40,15 +40,28 @@ export type EventoEstudio = {
   nota?: string;
 };
 
+/**
+ * De qué va cada cosa que se hace o se planea. Cada una tiene su color, el
+ * mismo en el planificador, el registro y el resto de la app.
+ */
+export type TipoActividad = "temario" | "repaso" | "supuesto" | "simulacro" | "practica" | "otro";
+
 export type Objetivo = {
   id: string;
   fecha: string;
   texto: string;
   temaId?: string;
-  /** Lo genera la app a partir de los repasos que tocan ese día. */
+  /**
+   * Lo crea la app, no la persona. Sirve para reprogramar un repaso: mover el
+   * repaso N de un tema a otro día (ver `numeroRepaso`).
+   */
   automatico?: boolean;
   hecho: boolean;
   aplazadoDe?: string;
+  /** Para pintarlo con el color de su sección. Los antiguos no lo tienen: "otro". */
+  tipo?: TipoActividad;
+  /** Si reprograma un repaso: cuál (1, 2, 3…). */
+  numeroRepaso?: number;
 };
 
 export type ConfiguracionExamen = {

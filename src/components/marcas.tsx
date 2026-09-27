@@ -1,13 +1,22 @@
 import clsx from "clsx";
 
 /** Visto bueno dibujado a mano: el trazo se "escribe" al aparecer. */
-export function Visto({ className, animado = true }: { className?: string; animado?: boolean }) {
+export function Visto({
+  className,
+  animado = true,
+  tono = "text-visto",
+}: {
+  className?: string;
+  animado?: boolean;
+  /** Color del trazo. "text-current" para heredar el del contenedor. */
+  tono?: string;
+}) {
   return (
     <svg
       viewBox="0 0 19 19"
       fill="none"
       aria-hidden="true"
-      className={clsx("h-[19px] w-[19px] text-visto", className)}
+      className={clsx("h-[19px] w-[19px]", tono, className)}
     >
       <path
         d="M3 10.5c2.4 2 3.6 3.4 4.6 5C9.4 11 12 7 16 3.5"
@@ -32,7 +41,12 @@ export function Aspa({ className }: { className?: string }) {
 
 export function Marca({ className }: { className?: string }) {
   return (
-    <span className={clsx("font-display text-[1.45rem] font-semibold tracking-[-0.01em] text-tinta", className)}>
+    <span
+      className={clsx(
+        "font-display text-[1.45rem] font-bold tracking-[-0.01em] text-acento",
+        className,
+      )}
+    >
       Cuaderno
     </span>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectarNormas, normalizarNombre } from "./normas";
+import { detectarNormas, normalizarNombre, seccionesDelDocumento } from "./normas";
 
 describe("detectarNormas", () => {
   it("encuentra leyes, decretos y órdenes con su tema", () => {
@@ -67,5 +67,21 @@ describe("normalizarNombre", () => {
     expect(normalizarNombre("Orden de 14 de febrero de 1996, sobre evaluación")).toBe(
       "Orden de 14 de febrero de 1996",
     );
+  });
+});
+
+describe("seccionesDelDocumento", () => {
+  it("parte el documento por sus grupos en mayúsculas", () => {
+    const secciones = seccionesDelDocumento(
+      "BANCO DE NORMATIVA\nSacado de mis temas.\n\nLEYES ORGÁNICAS\n- Ley Orgánica 2/2006, de Educación  [tema 3]\n\nDECRETOS\n- Decreto 147/2002  [temas 3, 4]\n- Decreto 1/2021  [tema 4]\n",
+    );
+    expect(secciones.map((s) => s.titulo)).toEqual(["", "LEYES ORGÁNICAS", "DECRETOS"]);
+    expect(secciones[0].lineas).toEqual(["BANCO DE NORMATIVA", "Sacado de mis temas."]);
+    expect(secciones[2].lineas).toHaveLength(2);
+  });
+
+  it("respeta un grupo añadido a mano", () => {
+    const secciones = seccionesDelDocumento("MIS NOTAS\n- Revisar la orden de 2024\n");
+    expect(secciones).toEqual([{ titulo: "MIS NOTAS", lineas: ["- Revisar la orden de 2024"] }]);
   });
 });

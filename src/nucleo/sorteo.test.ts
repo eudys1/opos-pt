@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  bomboDeLaRonda,
   distanciaEntre,
+  hechosEnLaRonda,
   probabilidadDeDominado,
   sortearSupuestos,
   sortearTemas,
@@ -110,5 +112,38 @@ describe("probabilidadDeDominado", () => {
 
   it("no se rompe sin temas", () => {
     expect(probabilidadDeDominado(0, 0, 2)).toBe(0);
+  });
+});
+
+describe("rondas sin repetir", () => {
+  const cinco = temas.slice(0, 5);
+  const ids = cinco.map((t) => t.id);
+
+  it("lo ya hecho no vuelve a salir en la misma ronda", () => {
+    const r = bomboDeLaRonda(cinco, ["t4"], 2);
+    expect(r.bombo.map((t) => t.id)).not.toContain("t4");
+    expect(r).toMatchObject({ quedan: 4, total: 5, completadoConHechos: false });
+  });
+
+  it("al terminar todos, vuelven todos al bombo", () => {
+    expect(hechosEnLaRonda(["t1", "t2", "t3", "t4", "t5"], ids).size).toBe(0);
+    expect(bomboDeLaRonda(cinco, ["t1", "t2", "t3", "t4", "t5"], 2).bombo).toHaveLength(5);
+  });
+
+  it("la ronda nueva empieza a contar tras cerrar la anterior", () => {
+    expect([...hechosEnLaRonda(["t1", "t2", "t3", "t4", "t5", "t2"], ids)]).toEqual(["t2"]);
+  });
+
+  it("si queda uno y hay que sacar dos, sale el que queda y se completa con uno hecho", () => {
+    const r = bomboDeLaRonda(cinco, ["t1", "t2", "t3", "t4"], 2, azarDe([0.5]));
+    expect(r.bombo).toHaveLength(2);
+    expect(r.bombo.map((t) => t.id)).toContain("t5");
+    expect(r.completadoConHechos).toBe(true);
+    // Y el sorteo, con dos en el bombo, los saca los dos.
+    expect(sortearTemas(r.bombo, 2).map((t) => t.id)).toContain("t5");
+  });
+
+  it("ignora del historial lo que ya no está disponible", () => {
+    expect(hechosEnLaRonda(["t9", "t1"], ids).has("t9")).toBe(false);
   });
 });

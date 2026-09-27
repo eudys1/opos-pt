@@ -1,11 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Estado } from "@/datos/almacen";
+import { ganaLaLocal, marcaDeTiempo, tieneAlgo } from "@/nucleo/sincronia";
 import type {
   EstadoContenido,
   EstadoEstudio,
   EventoEstudio,
   Objetivo,
   Tema,
+  TipoActividad,
   TipoEvento,
 } from "@/nucleo/tipos";
 
@@ -57,6 +59,8 @@ type FilaObjetivo = {
   automatico: boolean;
   hecho: boolean;
   aplazado_de: string | null;
+  tipo?: TipoActividad | null;
+  numero_repaso?: number | null;
 };
 
 type FilaPerfil = {
@@ -106,8 +110,19 @@ export async function sincronizar(
     const id = remoto?.id ?? uuid();
     idPorNumero.set(temaLocal.numero, id);
 
-    const ganaLocal = !remoto || temaLocal.actualizadoEn >= remoto.actualizado_en.slice(0, 10);
-    const fusionado: Tema = ganaLocal
+    // Regla en src/nucleo/sincronia.ts: nunca se pierde contenido al fusionar.
+    const ganaLocal = ganaLaLocal(
+      temaLocal,
+      remoto
+        ? {
+            texto: remoto.texto ?? "",
+            estadoContenido: remoto.estado_contenido,
+            estadoEstudio: remoto.estado_estudio,
+            actualizadoEn: remoto.actualizado_en,
+          }
+        : undefined,
+    );
+    const fusionado: Tema = ganaLocal || !remoto
       ? { ...temaLocal, id }
       : {
           id,
@@ -117,7 +132,7 @@ export async function sincronizar(
           estadoContenido: remoto.estado_contenido,
           estadoEstudio: remoto.estado_estudio,
           vueltas: remoto.vueltas,
-          actualizadoEn: remoto.actualizado_en.slice(0, 10),
+          actualizadoEn: remoto.actualizado_en,
         };
 
     temasFusionados.push(fusionado);
@@ -131,7 +146,9 @@ export async function sincronizar(
         estado_contenido: fusionado.estadoContenido,
         estado_estudio: fusionado.estadoEstudio,
         vueltas: fusionado.vueltas,
-        actualizado_en: new Date().toISOString(),
+        actualizado_en: marcaDeTiempo(fusionado.actualizadoEn)
+          ? new Date(marcaDeTiempo(fusionado.actualizadoEn)).toISOString()
+          : new Date().toISOString(),
       });
     }
   }
@@ -190,6 +207,8 @@ export async function sincronizar(
       automatico: fila.automatico,
       hecho: fila.hecho,
       aplazadoDe: fila.aplazado_de ?? undefined,
+      tipo: fila.tipo ?? undefined,
+      numeroRepaso: fila.numero_repaso ?? undefined,
     });
   }
 
@@ -198,7 +217,14 @@ export async function sincronizar(
     const id = UUID.test(objetivo.id) ? objetivo.id : uuid();
     const yaEsta = objetivosPorId.get(id);
     // Un objetivo que ya está arriba puede haberse marcado aquí: se sube el cambio.
-    if (yaEsta && yaEsta.hecho === objetivo.hecho && yaEsta.fecha === objetivo.fecha) continue;
+    if (
+      yaEsta &&
+      yaEsta.hecho === objetivo.hecho &&
+      yaEsta.fecha === objetivo.fecha &&
+      yaEsta.texto === objetivo.texto &&
+      yaEsta.tipo === objetivo.tipo
+    )
+      continue;
     const temaId = idRemotoDeLocal(objetivo.temaId);
     objetivosPorId.set(id, { ...objetivo, id });
     objetivosASubir.push({
@@ -210,6 +236,8 @@ export async function sincronizar(
       automatico: objetivo.automatico ?? false,
       hecho: objetivo.hecho,
       aplazado_de: objetivo.aplazadoDe ?? null,
+      tipo: objetivo.tipo ?? "otro",
+      numero_repaso: objetivo.numeroRepaso ?? null,
     });
   }
 
@@ -233,7 +261,7 @@ export async function sincronizar(
         nombre: filaPerfil.nombre || local.perfil.nombre,
         especialidad: filaPerfil.especialidad,
         comunidad: filaPerfil.comunidad,
-        fechaExamen: local.perfil.fechaExamen ?? filaPerfil.fecha_examen ?? undefined,
+        fechaExamen: filaPerfil.fecha_examen ?? local.perfil.fechaExamen ?? undefined,
         intervalosRepaso: filaPerfil.intervalos_repaso ?? local.perfil.intervalosRepaso,
         diasLibresAlMes: filaPerfil.dias_libres_al_mes,
         examen: filaPerfil.examen ?? local.perfil.examen,
@@ -260,8 +288,19 @@ export async function sincronizar(
   };
 }
 
-/** Sube el estado entero. Se usa tras cada cambio con la sesión abierta. */
-export async function guardarEnLaNube(sb: SupabaseClient, usuarioId: string, estado: Estado) {
+/**
+ * Sube el estado tras cada cambio con la sesión abierta.
+ *
+ * De los temas, solo los que han cambiado (`temasCambiados`), y con su propia
+ * hora de modificación. Antes se subían los 25 cada vez con la hora del
+ * momento, y eso hacía que cualquier navegador pisara la cuenta entera.
+ */
+export async function guardarEnLaNube(
+  sb: SupabaseClient,
+  usuarioId: string,
+  estado: Estado,
+  temasCambiados: Set<string>,
+) {
   const { error: errorPerfil } = await sb
     .from("perfiles")
     .update({
@@ -274,7 +313,14 @@ export async function guardarEnLaNube(sb: SupabaseClient, usuarioId: string, est
     .eq("id", usuarioId);
   if (errorPerfil) throw new Error(errorPerfil.message);
 
-  const temas = estado.temas.map((t) => ({
+  // Segunda barrera: un tema que nunca se ha tocado en este navegador
+  // (actualizadoEn vacío) no se sube jamás, aunque parezca cambiado. Y un tema
+  // vacío con fecha de solo día es una copia vieja de antes del arreglo, no
+  // algo que la persona haya vaciado: vaciar a mano deja la hora exacta.
+  const temas = estado.temas
+    .filter((t) => temasCambiados.has(t.id) && UUID.test(t.id) && t.actualizadoEn !== "")
+    .filter((t) => tieneAlgo(t) || t.actualizadoEn.length > 10)
+    .map((t) => ({
     id: t.id,
     usuario_id: usuarioId,
     numero: t.numero,
@@ -283,7 +329,9 @@ export async function guardarEnLaNube(sb: SupabaseClient, usuarioId: string, est
     estado_contenido: t.estadoContenido,
     estado_estudio: t.estadoEstudio,
     vueltas: t.vueltas,
-    actualizado_en: new Date().toISOString(),
+    actualizado_en: marcaDeTiempo(t.actualizadoEn)
+      ? new Date(marcaDeTiempo(t.actualizadoEn)).toISOString()
+      : new Date().toISOString(),
   }));
 
   const eventos = estado.eventos
@@ -310,10 +358,12 @@ export async function guardarEnLaNube(sb: SupabaseClient, usuarioId: string, est
       automatico: o.automatico ?? false,
       hecho: o.hecho,
       aplazado_de: o.aplazadoDe ?? null,
+      tipo: o.tipo ?? "otro",
+      numero_repaso: o.numeroRepaso ?? null,
     }));
 
   const respuestas = await Promise.all([
-    sb.from("temas").upsert(temas, { onConflict: "id" }),
+    temas.length ? sb.from("temas").upsert(temas, { onConflict: "id" }) : null,
     eventos.length ? sb.from("eventos_estudio").upsert(eventos, { onConflict: "id" }) : null,
     objetivos.length ? sb.from("objetivos").upsert(objetivos, { onConflict: "id" }) : null,
   ]);

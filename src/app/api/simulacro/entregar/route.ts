@@ -3,6 +3,7 @@ import { MODELOS } from "@/ia/cliente";
 import { corregirTema, CRITERIOS_TEMA } from "@/ia/corregir-tema";
 import { corregirSupuesto, notaPonderada } from "@/ia/supuestos";
 import { mensajeDeError, prepararLlamada, registrarUso } from "@/ia/guardas";
+import { leerReloj } from "@/nucleo/reloj";
 
 /**
  * Corrige UNA parte del simulacro.
@@ -57,12 +58,23 @@ export async function POST(peticion: Request) {
 
   const { data: simulacro } = await ctx.supabase
     .from("simulacros")
-    .select("id, iniciado_en, duracion_s")
+    .select("id, iniciado_en, duracion_s, pausado_total_s, pausado_en")
     .eq("id", parte.simulacro_id)
     .maybeSingle();
 
+  // Minutos de trabajo de verdad: sin las pausas de un simulacro flexible.
   const minutosUsados = simulacro
-    ? Math.round((Date.now() - new Date(simulacro.iniciado_en).getTime()) / 60000)
+    ? Math.round(
+        leerReloj(
+          {
+            iniciadoEn: simulacro.iniciado_en,
+            duracionS: simulacro.duracion_s,
+            pausadoTotalS: simulacro.pausado_total_s ?? 0,
+            pausadoEn: simulacro.pausado_en,
+          },
+          Date.now(),
+        ).transcurridoS / 60,
+      )
     : null;
 
   try {
@@ -92,7 +104,7 @@ export async function POST(peticion: Request) {
     } else {
       const { data: supuesto } = await ctx.supabase
         .from("supuestos")
-        .select("enunciado, cuestiones, rubrica, solucion")
+        .select("enunciado, cuestiones, rubrica, solucion, solucion_de_academia")
         .eq("id", parte.elegido_id)
         .maybeSingle();
 
@@ -102,6 +114,7 @@ export async function POST(peticion: Request) {
         cuestiones: (supuesto?.cuestiones ?? []) as string[],
         rubrica,
         solucion: supuesto?.solucion,
+        solucionDeAcademia: supuesto?.solucion_de_academia,
         respuesta: texto,
         desdeFoto,
       });

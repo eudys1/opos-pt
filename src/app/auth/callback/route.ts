@@ -9,7 +9,7 @@ import { clienteServidor } from "@/datos/supabase-servidor";
 export async function GET(peticion: Request) {
   const url = new URL(peticion.url);
   const codigo = url.searchParams.get("code");
-  const destino = url.searchParams.get("next") ?? "/registro";
+  const destino = url.searchParams.get("next") ?? "/inicio";
 
   if (!codigo) {
     return NextResponse.redirect(new URL("/entrar?error=sin-codigo", url.origin));

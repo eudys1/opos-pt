@@ -45,3 +45,4 @@ next-env.d.ts
 
 # Temario privado: nunca al repositorio publico
 /temario-local/
+/supuestos-local/

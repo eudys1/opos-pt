@@ -41,10 +41,20 @@ function eventosDelTema(eventos: EventoEstudio[], temaId: string): EventoEstudio
  * Construye la fila del registro para un tema: una casilla por cada hito
  * (estudiado + un repaso por intervalo) con su estado y su fecha.
  */
+export type OpcionesProgreso = {
+  intervalos?: number[];
+  hoy?: FechaISO;
+  /**
+   * Repasos que se han movido a mano a otro día: número de repaso → fecha.
+   * Mandan sobre la fecha calculada, en el registro y en el planificador.
+   */
+  reprogramados?: Record<number, FechaISO>;
+};
+
 export function progresoDelTema(
   eventos: EventoEstudio[],
   temaId: string,
-  opciones: { intervalos?: number[]; hoy?: FechaISO } = {},
+  opciones: OpcionesProgreso = {},
 ): ProgresoTema {
   const intervalos = opciones.intervalos ?? INTERVALOS_POR_DEFECTO;
   const hoy = opciones.hoy ?? hoyISO();
@@ -77,7 +87,7 @@ export function progresoDelTema(
       continue;
     }
 
-    const tocaEn = sumarDias(ultimaFechaHecha, intervalos[i]);
+    const tocaEn = opciones.reprogramados?.[i + 1] ?? sumarDias(ultimaFechaHecha, intervalos[i]);
 
     // Solo el primer repaso no hecho tiene fecha activa: los siguientes
     // dependen de cuándo se haga este, así que se muestran como pendientes.
@@ -106,10 +116,18 @@ export function progresoDelTema(
 export function repasosDelDia(
   eventos: EventoEstudio[],
   temaIds: string[],
-  opciones: { intervalos?: number[]; hoy?: FechaISO } = {},
+  opciones: Omit<OpcionesProgreso, "reprogramados"> & {
+    reprogramados?: Record<string, Record<number, FechaISO>>;
+  } = {},
 ): { temaId: string; casilla: CasillaRepaso; diasDeRetraso: number }[] {
   return temaIds
-    .map((temaId) => ({ temaId, ...progresoDelTema(eventos, temaId, opciones) }))
+    .map((temaId) => ({
+      temaId,
+      ...progresoDelTema(eventos, temaId, {
+        ...opciones,
+        reprogramados: opciones.reprogramados?.[temaId],
+      }),
+    }))
     .filter((p) => p.siguiente?.estado === "hoy" || p.siguiente?.estado === "atrasado")
     .map((p) => ({ temaId: p.temaId, casilla: p.siguiente!, diasDeRetraso: p.diasDeRetraso }))
     .sort((a, b) => b.diasDeRetraso - a.diasDeRetraso);

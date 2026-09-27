@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "probar:nube": "tsx scripts/probar-sincronizacion.mts",
     "migrar": "tsx scripts/migrar.mts",
-    "temario": "tsx scripts/temario.mts"
+    "temario": "tsx scripts/temario.mts",
+    "voz": "tsx scripts/voz.mts",
+    "supuestos": "tsx scripts/supuestos.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",

@@ -97,6 +97,16 @@ const Correccion = z.object({
   /** Faltas de ortografía y acentuación detectadas, tal y como aparecen. */
   ortografia: z.array(z.string()),
   consejo: z.string(),
+  /**
+   * Solo si hay resolución de la academia: sus puntos clave y si aparecen en
+   * la respuesta. Vacío si no la hay.
+   */
+  puntosClave: z.array(
+    z.object({
+      punto: z.string(),
+      presente: z.enum(["si", "parcial", "no"]),
+    }),
+  ),
 });
 
 export type CorreccionSupuesto = z.infer<typeof Correccion>;
@@ -111,7 +121,13 @@ Cómo corriges:
 - "bien", "falta" y "errores" en frases cortas y concretas, señalando la parte del supuesto a la que se refieren. No inventes errores para rellenar.
 - En "ortografia" lista solo las faltas reales que veas, con la palabra tal cual está escrita. Si el texto viene de una foto, puede haber errores de lectura: en ese caso sé prudente y no listes dudosas.
 - "consejo": dos o tres frases con lo más rentable para la próxima vez.
-- Tutea, ve al grano y no adornes.`;
+- Tutea, ve al grano y no adornes.
+
+Si recibes una RESOLUCIÓN DE LA ACADEMIA, es la referencia principal: es lo que el tribunal espera ver.
+- En "puntosClave" desglosa esa resolución en sus ideas importantes (entre cinco y doce), cada una en una frase corta, y marca si la respuesta la recoge: "si", "parcial" o "no". Valen otras palabras si la idea está.
+- Lo que falte de la resolución va también en "falta", y pesa en la nota del criterio al que pertenezca.
+- Si la respuesta aporta algo valioso que la resolución no tiene, dilo en "bien": no se penaliza.
+Si no hay resolución de la academia, "puntosClave" va vacío.`;
 
 export async function corregirSupuesto(
   ia: Anthropic,
@@ -120,6 +136,8 @@ export async function corregirSupuesto(
     cuestiones: string[];
     rubrica: { criterio: string; peso: number; queSeEspera: string }[];
     solucion?: string | null;
+    /** true si la solución la ha dado la academia: pasa a ser la referencia. */
+    solucionDeAcademia?: boolean | null;
     respuesta: string;
     desdeFoto?: boolean;
   },
@@ -144,7 +162,13 @@ ${datos.cuestiones.map((c, i) => `${i + 1}. ${c}`).join("\n")}
 
 RÚBRICA:
 ${rubrica}
-${datos.solucion ? `\nSOLUCIÓN ORIENTATIVA:\n${datos.solucion}` : ""}
+${
+  datos.solucion
+    ? datos.solucionDeAcademia
+      ? `\nRESOLUCIÓN DE LA ACADEMIA:\n${datos.solucion}`
+      : `\nSOLUCIÓN ORIENTATIVA:\n${datos.solucion}`
+    : ""
+}
 
 RESPUESTA DE LA OPOSITORA${datos.desdeFoto ? " (transcrita de fotos, puede tener errores de lectura)" : ""}:
 ${datos.respuesta}`,

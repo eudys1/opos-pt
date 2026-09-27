@@ -5,7 +5,7 @@ type Tono = "neutra" | "aviso" | "hecha" | "borrador";
 
 const tonos: Record<Tono, string> = {
   neutra: "border-linea text-apagado",
-  aviso: "border-margen-hilo text-margen bg-margen-fondo",
+  aviso: "border-aviso-vivo/50 text-aviso bg-aviso-fondo",
   hecha: "border-visto/40 text-visto bg-visto-fondo",
   borrador: "border-margen-hilo text-margen bg-papel-alto border-dashed",
 };
@@ -18,7 +18,7 @@ export function Etiqueta({
   return (
     <span
       className={clsx(
-        "inline-flex items-center rounded-[2px] border px-2 py-0.5 text-xs font-semibold",
+        "inline-flex items-center rounded-full border-2 px-2.5 py-0.5 text-xs font-extrabold",
         tonos[tono],
         className,
       )}

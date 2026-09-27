@@ -68,9 +68,9 @@ consola web. Consultado el 21/09/2026 en la
 1. En [console.cloud.google.com](https://console.cloud.google.com) crear un proyecto.
 2. En **Google Auth Platform → Branding**, rellenar nombre de la app, correo de soporte y correo de
    contacto. En **Audience**, tipo *External*. En **Data Access**, los tres permisos básicos:
-   `openid`, `userinfo.email` y `userinfo.profile`. Al ser permisos no sensibles, se puede pulsar
-   *Publish app* sin pasar verificación; si se deja en *Testing*, hay que añadir los dos correos
-   como usuarios de prueba y sale una pantalla de "app no verificada".
+   `openid`, `userinfo.email` y `userinfo.profile`. **Dejarla en *Testing*** y, en **Audience →
+   Test users**, añadir los dos correos: para dos personas basta. *Publish app* se queda gris hasta
+   tener página principal, política de privacidad y dominio autorizado, y no hace falta.
 3. En **Clients → Create client → Web application**:
    - *Authorized JavaScript origins*: `http://localhost:3000` y la URL de Vercel.
    - *Authorized redirect URIs*: la URL de retorno de Supabase, que aparece en el panel del
@@ -123,11 +123,64 @@ npm run temario -- --rehacer         # ignora el registro y lo repite todo
   archivo y por cuenta, así que solo sube lo que ha cambiado.
 - Usa la `SUPABASE_SECRET_KEY`, que salta la RLS para poder escribir en la cuenta de otra persona.
   Por eso se ejecuta a mano desde el portátil y nunca desde una ruta de la web.
-- Si un correo no ha entrado nunca en la app, todavía no tiene cuenta que rellenar: lo dice y sigue
-  con los demás.
+- Si un correo de `CORREOS_PERMITIDOS` no ha entrado nunca, **se le crea la cuenta** con el correo
+  ya confirmado y se le sube todo: al entrar por primera vez (con Google o con el enlace al correo)
+  se encuentra el temario puesto. Supabase une el inicio con Google a esa cuenta porque el correo
+  está verificado ([Identity Linking](https://supabase.com/docs/guides/auth/auth-identity-linking),
+  consultado el 27-09-2026). Con `--seco` solo dice que la crearía. Vale igual para
+  `npm run supuestos`.
+
+## Meter supuestos desde el disco (`npm run supuestos`)
+
+Igual que el temario, con la carpeta `supuestos-local/` (también fuera de git; dentro hay un
+`LEEME.txt`). Una carpeta por supuesto, con su nombre como título:
+
+```
+supuestos-local/
+  Alumno con TEA en 2.º de Primaria/
+    enunciado.pdf        obligatorio (.pdf, .txt o .md)
+    resolucion.pdf       la de la academia (opcional); "resolucion propia.txt" si es tuya
+    cuestiones.txt       una pregunta por línea (opcional)
+  Dislexia en 4.º.pdf    archivo suelto = supuesto sin resolución
+```
+
+```bash
+npm run supuestos -- --seco    # qué haría, sin escribir nada
+npm run supuestos              # subir
+```
+
+Entran siempre como **privados**. No pisa lo editado en la app (salvo `--forzar`) ni vuelve a
+subir lo que borraste allí (salvo `--rehacer`). Lo común con `npm run temario` (leer PDF, cuentas,
+registro) está en `scripts/comun.mts`.
 
 Pendiente: guardar el tema **por epígrafes** en vez de como un bloque de texto. La estructura está
 ahí (`INTRODUCCIÓN`, `1.`, `1.1`…), pero la tabla `temas` hoy tiene una sola columna de texto.
+
+## Voz natural para escuchar los temas (`npm run voz`)
+
+La voz del navegador suena a robot. `npm run voz` genera el audio de cada tema con las voces
+neurales de Microsoft Edge (el CLI `edge-tts`), lo pasa a Opus mono a 24 kbps con ffmpeg y lo sube a
+la cuenta. En la app aparece en «Escuchar el tema».
+
+```bash
+npm run voz                        # todos los temas con texto, todas las cuentas
+npm run voz -- --tema=3            # solo ese tema
+npm run voz -- --seco              # dice qué haría, sin generar nada
+VOZ=es-ES-AlvaroNeural npm run voz # otra voz (por defecto, es-ES-ElviraNeural)
+```
+
+- Gratis y sin clave, pero va desde el portátil: `edge-tts` y `ffmpeg` no existen en Vercel. Se
+  instalan una vez: `pip install edge-tts` y `winget install ffmpeg`.
+- Se lee el tema sin su índice inicial, sin la bibliografía y sin direcciones web.
+- Solo regenera lo que ha cambiado: la huella del texto, la voz y el ritmo va en el nombre del
+  archivo. La versión anterior se borra.
+- Medido el 27-09-2026: 85 palabras son 36 s de audio; en Opus ocupan 105 KB (en MP3, 212 KB). Un
+  tema de unas 2.000 palabras son unos 14 minutos y unos 2,5 MB.
+- El texto del tema va al servicio de voz de Microsoft para sintetizarlo. Si eso no conviene para
+  algún tema, la alternativa es grabarlo uno mismo desde la app.
+
+Las grabaciones propias se hacen en la app, en el mismo sitio: el navegador graba en Opus a 24 kbps
+(en iPhone puede ser AAC), unos 3 MB por cuarto de hora, y se escuchan antes de guardarlas.
 
 ## Coste de la IA
 
@@ -145,8 +198,9 @@ src/
   app/
     page.tsx            portada pública
     entrar/             acceso por enlace al correo
-    (app)/              la app: temario, registro, practicar, fallos, supuestos,
-                        simulacros, planificador, progreso y normativa
+    (app)/              la app: mi examen, temario, registro, planificador, practicar,
+                        fallos, supuestos, simulacros, progreso, normativa y mi cuenta
+    (editor)/           el tema a pantalla completa, en su propia pestaña
     api/                rutas de servidor: son las únicas que ven la clave de IA
   components/           piezas de interfaz del sistema de diseño
   contenido/            los 25 títulos oficiales y su procedencia
@@ -163,6 +217,12 @@ se puede probar con `npm test` y no cambia al tocar la nube.
 
 - **El cronómetro de los simulacros no avisa.** Ni alertas, ni sonidos, ni hitos. Se puede ver el
   tiempo restante, el transcurrido, solo la hora u ocultarlo. En el examen tampoco avisa nadie.
+- **Simulacro real o flexible.** El real no se para; el flexible se puede pausar y queda marcado
+  como tal. Las pausas, igual que la hora de inicio, las pone el servidor.
+- **El sorteo va por rondas**: lo ya desarrollado no vuelve a salir hasta hacer todo lo demás.
+- **El banco de preguntas solo suma**: generar más no borra nada, porque cada pregunta costó dinero.
+- **Registro y planificador son el mismo dato**: cambiar una fecha en uno la cambia en el otro.
+- **La legislación se corrige en local, palabra a palabra**, contra el texto literal del tema.
 - **La app nunca inventa contenido de un tema que no está subido.** Cada tema tiene su estado y la
   franja de cobertura lo dice siempre. Un borrador generado por IA se marca como tal en todas partes.
 - **Cada pregunta guarda la cita literal de los apuntes de la que sale**, y las que no se pueden

@@ -28,7 +28,7 @@ export async function POST(peticion: Request) {
 
   const { data: item, error } = await ctx.supabase
     .from("items")
-    .select("id, tema_id, enunciado, respuesta, cita")
+    .select("id, tema_id, enunciado, respuesta, cita, variante_de")
     .eq("id", itemId)
     .maybeSingle();
 
@@ -43,15 +43,18 @@ export async function POST(peticion: Request) {
       respuesta,
     });
 
+    // Una variante cuenta para su pregunta original: el fallo es de la original.
+    const idEnLaCola = (item.variante_de as string | null) ?? item.id;
+
     await ctx.supabase.from("intentos").insert({
       usuario_id: ctx.usuario.id,
-      item_id: item.id,
+      item_id: idEnLaCola,
       respuesta,
       acierto: correccion.acierto,
       feedback: correccion,
     });
 
-    await moverEnLaCola(ctx.supabase, ctx.usuario.id, item.id, item.tema_id, correccion.acierto);
+    await moverEnLaCola(ctx.supabase, ctx.usuario.id, idEnLaCola, item.tema_id, correccion.acierto);
     const gastoMes = await registrarUso(ctx, "correccion", MODELOS.correccion, uso);
 
     return NextResponse.json({ correccion, gastoMes });

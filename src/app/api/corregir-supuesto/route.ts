@@ -36,7 +36,7 @@ export async function POST(peticion: Request) {
 
   const { data: supuesto, error } = await ctx.supabase
     .from("supuestos")
-    .select("id, enunciado, cuestiones, rubrica, solucion")
+    .select("id, enunciado, cuestiones, rubrica, solucion, solucion_de_academia")
     .eq("id", supuestoId)
     .maybeSingle();
 
@@ -51,6 +51,7 @@ export async function POST(peticion: Request) {
       cuestiones: (supuesto.cuestiones ?? []) as string[],
       rubrica,
       solucion: supuesto.solucion,
+      solucionDeAcademia: supuesto.solucion_de_academia,
       respuesta: texto,
       desdeFoto,
     });

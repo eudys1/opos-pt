@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
 import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
+import { BarraProgreso } from "@/components/ui/barra-progreso";
 import type { CorreccionCorta } from "@/ia/corregir-corta";
+import { cotejarLiteral, type Cotejo } from "@/nucleo/cotejo";
+import { estructuraDelTema, ubicarCita } from "@/nucleo/estructura";
+import { useCuaderno } from "@/datos/almacen";
 
 /**
  * Una pregunta y su corrección. La usan Practicar y el repaso de fallos, para
@@ -23,6 +27,8 @@ export type Item = {
   explicacion: string | null;
   cita: string | null;
   desde_borrador: boolean;
+  /** Qué pide la tarjeta: "Definición", "Quién la realiza", "Cita literal"… */
+  pide?: string | null;
 };
 
 export type Veredicto = {
@@ -44,19 +50,25 @@ export function TarjetaPregunta({
   item,
   numero,
   total,
+  tema,
   onResuelto,
   onSiguiente,
 }: {
   item: Item;
   numero: number;
   total: number;
+  /** Número del tema del que sale, para tenerlo a la vista. */
+  tema?: number;
   onResuelto: (veredicto: Veredicto) => void;
   onSiguiente: () => void;
 }) {
   return (
-    <Ficha className="flex flex-col gap-5 px-6 py-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <Etiqueta>{NOMBRES[item.tipo]}</Etiqueta>
+    <Ficha destacada className="flex flex-col gap-5 px-6 py-6 sm:px-7">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center rounded-full bg-sec-repaso-fondo px-3 py-1 text-[0.8rem] font-extrabold text-sec-repaso">
+          {tema ? `Tema ${tema} · ` : ""}
+          {NOMBRES[item.tipo]}
+        </span>
         {item.desde_borrador ? (
           <Etiqueta tono="borrador">sale de un borrador, no de tus apuntes</Etiqueta>
         ) : null}
@@ -69,6 +81,8 @@ export function TarjetaPregunta({
         <Test item={item} onResuelto={onResuelto} onSiguiente={onSiguiente} />
       ) : item.tipo === "corta" ? (
         <Corta item={item} onResuelto={onResuelto} onSiguiente={onSiguiente} />
+      ) : item.tipo === "ley" ? (
+        <LeyLiteral item={item} onResuelto={onResuelto} onSiguiente={onSiguiente} />
       ) : (
         <Tarjeta item={item} onResuelto={onResuelto} onSiguiente={onSiguiente} />
       )}
@@ -76,14 +90,61 @@ export function TarjetaPregunta({
   );
 }
 
+/**
+ * La frase de tus apuntes de la que sale la pregunta, siempre a la vista. Se
+ * despliega para ver el párrafo entero en su epígrafe, sin salir de la
+ * pregunta, y lleva al sitio exacto del tema en otra pestaña.
+ */
 function Cita({ item }: { item: Item }) {
+  const { temas } = useCuaderno();
+  const tema = temas.find((t) => t.id === item.tema_id);
+  const textoTema = tema?.texto ?? "";
+  const sitio = useMemo(
+    () => (item.cita && textoTema ? ubicarCita(estructuraDelTema(textoTema), item.cita) : null),
+    [item.cita, textoTema],
+  );
   if (!item.cita) return null;
+
+  const frase = (
+    <>
+      <span className="font-semibold text-tinta">Tus apuntes: </span>«{item.cita}»
+    </>
+  );
+  if (!sitio || !tema) {
+    return (
+      <p className="rounded-[16px] border-2 border-linea bg-papel-franja px-4 py-3 text-[0.9rem] leading-relaxed text-texto">
+        {frase}
+      </p>
+    );
+  }
+
   return (
-    <details className="text-[0.88rem]">
-      <summary className="regla cursor-pointer text-texto">De dónde sale esto</summary>
-      <blockquote className="mt-2 border-l-2 border-margen-hilo pl-3 text-apagado">
-        «{item.cita}»
-      </blockquote>
+    <details className="acordeon group rounded-[16px] border-2 border-linea bg-papel-franja text-[0.9rem] leading-relaxed text-texto open:border-sec-temario-vivo">
+      <summary className="flex cursor-pointer list-none items-start gap-3 px-4 py-3">
+        <span className="flex-1">{frase}</span>
+        <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[0.8rem] font-extrabold text-sec-temario">
+          <span className="group-open:hidden">Ver dónde está</span>
+          <span className="hidden group-open:inline">Plegar</span>
+          <span aria-hidden="true" className="inline-block transition-transform duration-200 group-open:rotate-180">
+            ▾
+          </span>
+        </span>
+      </summary>
+      <div className="flex flex-col gap-2 border-t-2 border-linea px-4 pb-4 pt-3">
+        <p className="text-[0.78rem] font-extrabold uppercase tracking-wide text-sec-temario">
+          Tema {tema.numero}
+          {sitio.epigrafe ? ` · ${sitio.epigrafe.texto}` : ""}
+        </p>
+        <p className="max-h-48 overflow-y-auto text-[0.92rem] text-tinta">{sitio.bloque.texto}</p>
+        <a
+          href={`/tema/${tema.numero}#${sitio.bloque.id}`}
+          target="_blank"
+          rel="noopener"
+          className="regla self-start text-[0.86rem] font-extrabold text-sec-temario"
+        >
+          Abrir el tema en este punto ↗
+        </a>
+      </div>
     </details>
   );
 }
@@ -104,7 +165,7 @@ function Test({
 
   return (
     <>
-      <h2 className="font-display text-[1.35rem] leading-snug">{item.enunciado}</h2>
+      <h2 className="font-display text-[1.55rem] leading-snug">{item.enunciado}</h2>
 
       <ol className="flex flex-col gap-2">
         {opciones.map((opcion, i) => {
@@ -119,15 +180,32 @@ function Test({
                   onResuelto({ acierto: i === item.correcta, respuesta: opcion });
                 }}
                 className={clsx(
-                  "flex w-full items-start gap-3 rounded-pliegue border px-4 py-3 text-left text-[0.97rem] transition-colors",
-                  !respondida && "border-linea bg-papel-alto hover:border-tinta",
-                  respondida && esCorrecta && "border-visto bg-visto-fondo",
-                  respondida && !esCorrecta && elegida === i && "border-margen bg-margen-fondo",
+                  "flex w-full items-center gap-3 rounded-[16px] border-[3px] px-4 py-3 text-left text-[0.98rem] font-bold transition-colors",
+                  !respondida && "border-linea bg-papel-alto hover:border-borde",
+                  respondida && esCorrecta && "border-visto-vivo bg-visto-fondo text-visto",
+                  respondida && !esCorrecta && elegida === i && "border-margen bg-margen-fondo text-margen",
                   respondida && !esCorrecta && elegida !== i && "border-linea opacity-60",
                 )}
               >
-                <span className="font-semibold text-apagado">{"abcd"[i]})</span>
+                <span
+                  className={clsx(
+                    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-[0.8rem] font-extrabold",
+                    respondida && esCorrecta
+                      ? "bg-visto-vivo text-sobre-boton"
+                      : respondida && elegida === i
+                        ? "bg-margen text-papel-alto"
+                        : "bg-linea-suave text-apagado",
+                  )}
+                >
+                  {"abcd"[i]}
+                </span>
                 <span className="flex-1">{opcion}</span>
+                {respondida && esCorrecta ? (
+                  <span className="shrink-0 text-[0.78rem] font-semibold text-visto">correcta</span>
+                ) : null}
+                {respondida && !esCorrecta && elegida === i ? (
+                  <span className="shrink-0 text-[0.78rem] font-semibold text-margen">tu respuesta</span>
+                ) : null}
               </button>
             </li>
           );
@@ -167,16 +245,10 @@ function Tarjeta({
   const [vuelta, setVuelta] = useState(false);
   const [valorada, setValorada] = useState(false);
 
-  const esLey = item.tipo === "ley";
-
   return (
     <>
-      {esLey ? (
-        <p className="text-[0.85rem] text-apagado">
-          Di de qué va esta norma y qué regula, tal y como lo tienes en el tema.
-        </p>
-      ) : null}
-      <h2 className="font-display text-[1.35rem] leading-snug">{item.enunciado}</h2>
+      <PidePrueba item={item} />
+      <h2 className="font-display text-[1.55rem] leading-snug">{item.enunciado}</h2>
 
       {!vuelta ? (
         <Boton tono="secundario" onClick={() => setVuelta(true)} className="self-start">
@@ -233,6 +305,160 @@ function Tarjeta({
   );
 }
 
+/**
+ * Qué se pide contestar. Las flashcards antiguas no lo traen: para esas se
+ * dice lo general, que es mejor que dejar un concepto suelto sin pregunta.
+ */
+function PidePrueba({ item }: { item: Item }) {
+  const pide = item.pide?.trim() || "Lo que dicen tus apuntes sobre esto";
+  return (
+    <p className="text-[0.88rem] text-apagado">
+      Te pide: <strong className="font-semibold text-tinta">{pide}</strong>
+    </p>
+  );
+}
+
+/**
+ * Legislación: se escribe la norma de memoria, tal cual, y se coteja palabra a
+ * palabra con el texto literal del tema. Sin IA: es instantáneo, gratis y no se
+ * equivoca con una cifra, que es lo que más cuenta al citar una norma.
+ */
+function LeyLiteral({
+  item,
+  onResuelto,
+  onSiguiente,
+}: {
+  item: Item;
+  onResuelto: (v: Veredicto) => void;
+  onSiguiente: () => void;
+}) {
+  const [texto, setTexto] = useState("");
+  const [cotejo, setCotejo] = useState<Cotejo | null>(null);
+  const [falta, setFalta] = useState("");
+  // Las nuevas guardan la cita literal en la respuesta. Las anteriores tenían
+  // ahí un resumen, así que para esas se coteja contra su cita, que sí es
+  // literal de los apuntes por construcción.
+  const original =
+    (item.pide === "Cita literal" ? item.respuesta : (item.cita ?? item.respuesta)) ?? "";
+
+  function cotejar(sinRespuesta = false) {
+    if (!sinRespuesta && texto.trim().length < 5) {
+      setFalta("Escribe la cita, aunque sea a medias. Si no te la sabes, pulsa «No me la sé».");
+      return;
+    }
+    setFalta("");
+    const resultado = cotejarLiteral(texto, original);
+    setCotejo(resultado);
+    onResuelto({ acierto: resultado.acierto, respuesta: texto });
+  }
+
+  const titular = cotejo
+    ? cotejo.veredicto === "literal"
+      ? "Tal cual está en tu tema."
+      : cotejo.veredicto === "casi"
+        ? "Casi: te faltan algunas palabras."
+        : "Te falta buena parte de la cita."
+    : "";
+
+  return (
+    <>
+      <p className="text-[0.88rem] text-apagado">
+        Te pide: <strong className="font-semibold text-tinta">la cita literal, como en el examen</strong>
+      </p>
+      <h2 className="font-display text-[1.55rem] leading-snug">{item.enunciado}</h2>
+
+      <div>
+        <label htmlFor={`ley-${item.id}`} className="block text-[0.9rem] font-semibold text-tinta">
+          Escribe lo que dice tu tema sobre esta norma
+        </label>
+        <p id={`ley-${item.id}-ayuda`} className="mb-1.5 text-[0.82rem] text-apagado">
+          Nombre completo, fecha y lo que regula. Da igual la puntuación y las mayúsculas; los
+          números y las fechas tienen que estar bien.
+        </p>
+        <textarea
+          id={`ley-${item.id}`}
+          aria-describedby={`ley-${item.id}-ayuda`}
+          value={texto}
+          disabled={Boolean(cotejo)}
+          aria-invalid={falta ? true : undefined}
+          onChange={(e) => {
+            setTexto(e.target.value);
+            setFalta("");
+          }}
+          rows={4}
+          className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 text-[0.97rem] leading-relaxed"
+        />
+      </div>
+
+      {!cotejo ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Boton onClick={() => cotejar()}>Cotejar con mi tema</Boton>
+          <Boton tono="fantasma" onClick={() => cotejar(true)}>
+            No me la sé
+          </Boton>
+          {falta ? (
+            <p role="alert" className="w-full text-[0.88rem] font-bold text-margen">
+              {falta}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 border-t border-linea-suave pt-4" aria-live="polite">
+          <p
+            className={clsx(
+              "font-semibold",
+              cotejo.veredicto === "literal" ? "text-visto" : "text-margen",
+            )}
+          >
+            {titular}{" "}
+            <span className="font-normal text-apagado" data-numerico>
+              {cotejo.porcentaje}% del texto
+            </span>
+          </p>
+
+          {cotejo.datosQueFaltan.length > 0 ? (
+            <p className="text-[0.92rem] text-texto">
+              Datos que faltan o están mal:{" "}
+              <strong className="font-semibold text-margen">
+                {cotejo.datosQueFaltan.join(" · ")}
+              </strong>
+            </p>
+          ) : null}
+
+          <div>
+            <p className="text-[0.85rem] font-semibold text-tinta">
+              Lo que dice tu tema{" "}
+              <span className="font-normal text-apagado">(subrayado: lo que te ha faltado)</span>
+            </p>
+            <p className="mt-1.5 rounded-pliegue border border-linea bg-papel-franja px-4 py-3 text-[0.97rem] leading-relaxed">
+              {cotejo.palabras.map((p, i) => (
+                <span key={i}>
+                  {p.recordada ? (
+                    <span className="text-tinta">{p.texto}</span>
+                  ) : (
+                    <mark
+                      className={clsx(
+                        "rounded-[2px] bg-margen-fondo px-0.5 text-margen underline decoration-margen-hilo underline-offset-4",
+                        p.clave && "font-semibold",
+                      )}
+                    >
+                      {p.texto}
+                    </mark>
+                  )}{" "}
+                </span>
+              ))}
+            </p>
+          </div>
+
+          <Boton onClick={onSiguiente} className="self-start">
+            Siguiente
+          </Boton>
+        </div>
+      )}
+    </>
+  );
+}
+
 function Corta({
   item,
   onResuelto,
@@ -248,6 +474,10 @@ function Corta({
   const [error, setError] = useState("");
 
   async function corregir() {
+    if (texto.trim().length < 10) {
+      setError("Escribe al menos una frase para poder corregirla.");
+      return;
+    }
     setCorrigiendo(true);
     setError("");
     try {
@@ -273,7 +503,7 @@ function Corta({
 
   return (
     <>
-      <h2 className="font-display text-[1.35rem] leading-snug">{item.enunciado}</h2>
+      <h2 className="font-display text-[1.55rem] leading-snug">{item.enunciado}</h2>
 
       <div>
         <label htmlFor={`resp-${item.id}`} className="block text-[0.9rem] font-semibold text-tinta">
@@ -291,13 +521,17 @@ function Corta({
 
       {!correccion ? (
         <div className="flex flex-wrap items-center gap-3">
-          <Boton onClick={corregir} disabled={corrigiendo || texto.trim().length < 10}>
+          <Boton onClick={corregir} disabled={corrigiendo}>
             {corrigiendo ? "Corrigiendo…" : "Corregir"}
           </Boton>
           <span className="text-[0.85rem] text-apagado">
             Se corrige contra la respuesta que salió de tus apuntes.
           </span>
         </div>
+      ) : null}
+
+      {corrigiendo ? (
+        <BarraProgreso pasos={["corrigiendo tu respuesta"]} actual={0} aviso="Unos segundos." />
       ) : null}
 
       {error ? (
