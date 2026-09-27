@@ -33,7 +33,9 @@ const soloVer = process.argv.includes("--ver");
 if (!token) {
   console.error(
     [
-      "Falta SUPABASE_ACCESS_TOKEN en .env.local.",
+      process.env.GITHUB_ACTIONS
+        ? "Falta el secreto SUPABASE_ACCESS_TOKEN en GitHub (Settings → Secrets and variables → Actions)."
+        : "Falta SUPABASE_ACCESS_TOKEN en .env.local.",
       "",
       "  1. Entra en https://supabase.com/dashboard/account/tokens",
       "  2. Generate new token, ponle un nombre (por ejemplo: cuaderno-migraciones)",
