@@ -9,8 +9,12 @@ Todo el código, los comentarios, los nombres y la interfaz van **en español**.
 npm run dev      # servidor de desarrollo en localhost:3000
 npm test         # vitest, lógica de src/nucleo
 npm run build    # compilación (hace también la comprobación de tipos)
+npm run temario  # sube a la cuenta los temas de temario-local/ (--seco para probar)
 npx eslint src --max-warnings=0
 ```
+
+`temario-local/` es material privado y está en `.gitignore`: el repositorio es público y ahí no
+entra nada del temario. Antes de cualquier `git add` amplio, mirar `git status`.
 
 ## Cómo está partido
 

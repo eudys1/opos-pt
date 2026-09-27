@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Variables de entorno locales
 .env.local
+
+# Temario privado: nunca al repositorio publico
+/temario-local/

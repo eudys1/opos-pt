@@ -97,6 +97,38 @@ La sincronización funciona así: el navegador es quien pinta la pantalla, así 
 aguanta sin conexión; al entrar se fusiona con la cuenta —las marcas y los objetivos se unen por id
 y de cada tema se queda la versión modificada más tarde— y después cada cambio sube solo.
 
+## Meter temario desde el disco (`npm run temario`)
+
+Cuarta vía de entrada, además de las fotos, el PDF desde la web y el texto pegado: dejas los
+archivos en `temario-local/` y un comando los sube a la cuenta.
+
+```bash
+npm run temario                      # a todos los correos de CORREOS_PERMITIDOS
+npm run temario -- --seco            # dice qué haría, sin escribir nada
+npm run temario -- --cuenta=a@b.com  # solo a esa cuenta
+npm run temario -- --sin-archivo     # sube el texto, el PDF no sale del disco
+npm run temario -- --rehacer         # ignora el registro y lo repite todo
+```
+
+- **La carpeta no va al repositorio.** Está en `.gitignore` porque el repositorio es público. Lo
+  que viaja es el contenido, y va a un cubo **privado** con RLS: solo lo ve la cuenta a la que se
+  sube. Comprobado contra la base real: un cliente anónimo no puede descargar el PDF ni leer una
+  sola fila de `temas`.
+- **El número de tema sale del nombre del archivo** (`tema 3 oposiciones.pdf` → tema 3) y se
+  contrasta con los 25 títulos oficiales. Lo que no se reconozca se queda fuera y se avisa.
+- **Los PDF con capa de texto se leen aquí, gratis y exactos**, sin gastar IA. Si un archivo sale
+  con menos de 200 caracteres es que está escaneado: ese va por la pantalla de "Mi temario", que lo
+  lee con visión.
+- **Es repetible.** Lleva un registro local (`temario-local/.procesado.json`) con la huella de cada
+  archivo y por cuenta, así que solo sube lo que ha cambiado.
+- Usa la `SUPABASE_SECRET_KEY`, que salta la RLS para poder escribir en la cuenta de otra persona.
+  Por eso se ejecuta a mano desde el portátil y nunca desde una ruta de la web.
+- Si un correo no ha entrado nunca en la app, todavía no tiene cuenta que rellenar: lo dice y sigue
+  con los demás.
+
+Pendiente: guardar el tema **por epígrafes** en vez de como un bloque de texto. La estructura está
+ahí (`INTRODUCCIÓN`, `1.`, `1.1`…), pero la tabla `temas` hoy tiene una sola columna de texto.
+
 ## Coste de la IA
 
 Cada llamada queda registrada en la tabla `uso_ia` con su coste estimado, y hay un tope mensual por

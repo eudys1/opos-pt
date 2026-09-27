@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "probar:nube": "tsx scripts/probar-sincronizacion.mts",
-    "migrar": "tsx scripts/migrar.mts"
+    "migrar": "tsx scripts/migrar.mts",
+    "temario": "tsx scripts/temario.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
@@ -30,6 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "pdfjs-dist": "^6.3.289",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
