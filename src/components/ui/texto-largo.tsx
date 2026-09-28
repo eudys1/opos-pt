@@ -19,8 +19,19 @@ export function TextoLargo({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // Para medir hay que encoger la caja un instante, y con ella la página: el
+    // navegador recoloca entonces el scroll y, al recuperar la altura, ya no
+    // vuelve. Se guarda la posición y se devuelve antes de pintar, así que no
+    // se ve ningún salto al escribir en mitad de un tema largo.
+    const x = window.scrollX;
+    const y = window.scrollY;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight + 2}px`;
+    // "instant": la página tiene scroll-behavior: smooth y, sin esto, la vuelta
+    // sería una animación, que es justo el movimiento que se quiere quitar.
+    if (window.scrollX !== x || window.scrollY !== y) {
+      window.scrollTo({ left: x, top: y, behavior: "instant" });
+    }
   }, [value]);
 
   return (
