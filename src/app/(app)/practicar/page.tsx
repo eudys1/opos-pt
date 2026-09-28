@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
@@ -9,6 +9,7 @@ import { Ficha } from "@/components/ui/ficha";
 import { TarjetaPregunta, type Item, type Veredicto } from "@/components/tarjeta-pregunta";
 import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { moverEnLaCola } from "@/datos/cola-fallos";
 import { tituloCorto } from "@/contenido/temario-pt";
 
@@ -36,8 +37,6 @@ function Practicar() {
   // Desde un tema, "Practicar las de este tema" llega con ?tema=<id>.
   const temaDelEnlace = useSearchParams().get("tema");
 
-  const [recuento, setRecuento] = useState<Record<string, Record<string, number>>>({});
-  const [datosPedidos, setDatosPedidos] = useState(false);
   const [temasElegidos, setTemasElegidos] = useState<string[]>(() =>
     temaDelEnlace ? [temaDelEnlace] : [],
   );
@@ -51,30 +50,30 @@ function Practicar() {
   const [resultados, setResultados] = useState<("bien" | "mal" | "dudada")[]>([]);
   const [error, setError] = useState("");
 
-  // Cuántas preguntas hay de cada tema y tipo.
-  useEffect(() => {
-    if (!cliente || !usuario) return;
-    let vivo = true;
-    cliente
-      .from("items")
-      .select("tema_id, tipo")
-      .eq("activo", true)
-      .is("variante_de", null)
-      .then(({ data, error: e }) => {
-        if (!vivo) return;
-        if (e) setError(e.message);
-        const mapa: Record<string, Record<string, number>> = {};
-        for (const fila of data ?? []) {
-          mapa[fila.tema_id] ??= {};
-          mapa[fila.tema_id][fila.tipo] = (mapa[fila.tema_id][fila.tipo] ?? 0) + 1;
-        }
-        setRecuento(mapa);
-        setDatosPedidos(true);
-      });
-    return () => {
-      vivo = false;
-    };
-  }, [cliente, usuario]);
+  // Cuántas preguntas hay de cada tema y tipo. Recordado entre visitas
+  // (src/datos/cache.ts): al volver, las cifras están ya y no saltan.
+  const {
+    datos: recuentoLeido,
+    listo: datosPedidos,
+    error: errorCarga,
+  } = useRecordado<Record<string, Record<string, number>>>(
+    cliente && usuario ? `practicar:${usuario.id}` : null,
+    async () => {
+      const { data, error: e } = await cliente!
+        .from("items")
+        .select("tema_id, tipo")
+        .eq("activo", true)
+        .is("variante_de", null);
+      if (e) throw new Error(e.message);
+      const mapa: Record<string, Record<string, number>> = {};
+      for (const fila of data ?? []) {
+        mapa[fila.tema_id] ??= {};
+        mapa[fila.tema_id][fila.tipo] = (mapa[fila.tema_id][fila.tipo] ?? 0) + 1;
+      }
+      return mapa;
+    },
+  );
+  const recuento = useMemo(() => recuentoLeido ?? {}, [recuentoLeido]);
 
   const temasConBanco = useMemo(
     () => temas.filter((t) => recuento[t.id] && Object.keys(recuento[t.id]).length > 0),
@@ -333,9 +332,9 @@ function Practicar() {
         </p>
       </header>
 
-      {error ? (
+      {error || errorCarga ? (
         <p role="alert" className="rounded-pliegue border border-margen-hilo bg-margen-fondo px-4 py-2 text-[0.92rem]">
-          {error}
+          {error || `No se han podido contar tus preguntas (${errorCarga}). Recarga la página.`}
         </p>
       ) : null}
 

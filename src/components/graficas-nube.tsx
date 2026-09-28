@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { Ficha } from "@/components/ui/ficha";
 import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { fechaCorta } from "@/nucleo/fechas";
 
 /**
@@ -33,51 +33,54 @@ function nivel(porcentaje: number): { barra: string; texto: string } {
   return { barra: "bg-margen", texto: "text-margen" };
 }
 
+type DatosGraficas = {
+  dominios: Dominio[];
+  fallos: { abiertos: number; superados: number };
+  resiste: Resistente | null;
+  simulacros: Simulacro[];
+};
+
 export function GraficasNube() {
   const { temas } = useCuaderno();
   const { usuario, cliente } = useSesion();
 
-  const [dominios, setDominios] = useState<Dominio[]>([]);
-  const [fallos, setFallos] = useState({ abiertos: 0, superados: 0 });
-  const [resiste, setResiste] = useState<Resistente | null>(null);
-  const [simulacros, setSimulacros] = useState<Simulacro[]>([]);
-  const [pedido, setPedido] = useState(false);
-
-  useEffect(() => {
-    if (!cliente || !usuario) return;
-    let vivo = true;
-    void (async () => {
-      const [{ data: dom }, { data: fls }, { data: peor }, { data: sims }] = await Promise.all([
-        cliente.from("dominio_por_tema").select("tema_id, dominio, intentos"),
-        cliente.from("fallos").select("resuelto_en"),
-        cliente
+  // Recordado entre visitas (src/datos/cache.ts): al volver a Mi progreso las
+  // gráficas están ya, en vez de aparecer abajo un momento después.
+  const { datos: leido } = useRecordado<DatosGraficas>(
+    cliente && usuario ? `graficas:${usuario.id}` : null,
+    async () => {
+      const [dom, fls, peor, sims] = await Promise.all([
+        cliente!.from("dominio_por_tema").select("tema_id, dominio, intentos"),
+        cliente!.from("fallos").select("resuelto_en"),
+        cliente!
           .from("fallos")
           .select("veces_fallado, tema_id, items(enunciado)")
           .is("resuelto_en", null)
           .order("veces_fallado", { ascending: false })
           .limit(1),
-        cliente
+        cliente!
           .from("simulacros")
           .select("id, modalidad, nota, creado_en, reloj")
           .eq("estado", "corregido")
           .order("creado_en"),
       ]);
-      if (!vivo) return;
-      setDominios((dom ?? []) as Dominio[]);
-      setFallos({
-        abiertos: (fls ?? []).filter((f) => !f.resuelto_en).length,
-        superados: (fls ?? []).filter((f) => f.resuelto_en).length,
-      });
-      setResiste(((peor ?? [])[0] as unknown as Resistente) ?? null);
-      setSimulacros((sims ?? []) as Simulacro[]);
-      setPedido(true);
-    })();
-    return () => {
-      vivo = false;
-    };
-  }, [cliente, usuario]);
+      const fallo = dom.error ?? fls.error ?? peor.error ?? sims.error;
+      if (fallo) throw new Error(fallo.message);
+      return {
+        dominios: (dom.data ?? []) as Dominio[],
+        fallos: {
+          abiertos: (fls.data ?? []).filter((f) => !f.resuelto_en).length,
+          superados: (fls.data ?? []).filter((f) => f.resuelto_en).length,
+        },
+        resiste: ((peor.data ?? [])[0] as unknown as Resistente) ?? null,
+        simulacros: (sims.data ?? []) as Simulacro[],
+      };
+    },
+  );
 
-  if (!usuario || !pedido) return null;
+  if (!usuario || !leido) return null;
+  const { dominios, fallos, resiste, simulacros } = leido;
+
 
   const practicados = dominios
     .map((d) => ({ ...d, tema: temas.find((t) => t.id === d.tema_id) }))

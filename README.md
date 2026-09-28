@@ -53,8 +53,9 @@ npx tsx scripts/probar-lectura.mts   # prueba la lectura de apuntes contra la AP
      [supabase.com/dashboard/account/tokens](https://supabase.com/dashboard/account/tokens), pegarlo
      en `.env.local` como `SUPABASE_ACCESS_TOKEN` y ejecutar `npm run migrar`. Lleva la cuenta de
      lo aplicado en una tabla `migraciones`, así que se puede repetir sin miedo.
-   - **A mano**: pegar `supabase/migrations/PENDIENTES.sql` en el **SQL Editor** de Supabase. Si el
-     proyecto es nuevo, antes `0001_fase1.sql`.
+   - **A mano**: pegar en el **SQL Editor** de Supabase, en orden, los archivos de
+     `supabase/migrations/` que falten. Al hacer push a `main`, el workflow de GitHub los aplica
+     solo si tiene los secretos.
 5. En **Authentication → URL Configuration**, poner `http://localhost:3000` como *Site URL* y añadir
    `http://localhost:3000/**` a *Redirect URLs*.
 6. Reiniciar `npm run dev` y entrar en `/entrar`.

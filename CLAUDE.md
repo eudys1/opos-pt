@@ -26,6 +26,11 @@ entra nada del temario. Antes de cualquier `git add` amplio, mirar `git status`.
   dominio va aquí. Devuelve códigos, no frases: la pantalla redacta el mensaje.
 - `src/datos/almacen.tsx` — estado de la app: store externo sobre `localStorage` leído con
   `useSyncExternalStore`, sincronizado con la cuenta por `src/datos/nube.ts`.
+- `src/datos/cache.ts` — `useRecordado`: lo último leído de la cuenta, para que al volver a una
+  pantalla se pinte al instante y se ponga al día por detrás, **sin saltos**. Clave con el id del
+  usuario. Solo para lecturas que se enseñan; nunca para algo que se edita (el banco de normativa,
+  los temas) ni para enlaces firmados que caducan. Si una acción deja viejo lo que otra pantalla
+  recuerda, `olvidar(prefijo)` (lo hace el simulacro al entregar).
 - `src/contenido/temario-pt.ts` — los 25 títulos oficiales, su fuente y los avisos de literalidad.
 - `src/app/(app)/` — la app con sesión y barra lateral. `src/app/(editor)/` — pantallas de trabajo a
   pantalla completa (el tema en su pestaña). `src/app/page.tsx` — portada pública.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
@@ -8,6 +8,7 @@ import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { detectarNormas } from "@/nucleo/normas";
 import { BancoNormativa } from "@/components/banco-normativa";
 import { BarraProgreso } from "@/components/ui/barra-progreso";
@@ -41,31 +42,28 @@ export default function PaginaNormativa() {
   const { temas } = useCuaderno();
   const { usuario, cliente } = useSesion();
 
-  const [guardadas, setGuardadas] = useState<NormaGuardada[]>([]);
   const [hallazgos, setHallazgos] = useState<Hallazgo[] | null>(null);
   const [comprobando, setComprobando] = useState(false);
   const [error, setError] = useState("");
-  const [version, setVersion] = useState(0);
 
   // Detectadas en local: no hace falta la nube para saber qué leyes citas.
   const detectadas = detectarNormas(
     temas.filter((t) => t.texto).map((t) => ({ numero: t.numero, texto: t.texto })),
   );
 
-  useEffect(() => {
-    if (!cliente || !usuario) return;
-    let vivo = true;
-    void (async () => {
-      const { data } = await cliente
+  // Recordado entre visitas (src/datos/cache.ts); tras comprobar se vuelve a pedir.
+  const { datos: leidas, recargar } = useRecordado<NormaGuardada[]>(
+    cliente && usuario ? `normas:${usuario.id}` : null,
+    async () => {
+      const { data, error: e } = await cliente!
         .from("normas")
         .select("nombre, temas, estado, resumen, enlace, comprobada_en")
         .order("comprobada_en", { ascending: false });
-      if (vivo) setGuardadas((data ?? []) as NormaGuardada[]);
-    })();
-    return () => {
-      vivo = false;
-    };
-  }, [cliente, usuario, version]);
+      if (e) throw new Error(e.message);
+      return (data ?? []) as NormaGuardada[];
+    },
+  );
+  const guardadas = leidas ?? [];
 
   async function comprobar() {
     if (detectadas.length === 0) {
@@ -79,7 +77,7 @@ export default function PaginaNormativa() {
       const datos = await respuesta.json();
       if (!respuesta.ok) throw new Error(datos.error ?? "No se ha podido comprobar.");
       setHallazgos(datos.hallazgos);
-      setVersion((v) => v + 1);
+      recargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se ha podido comprobar.");
     } finally {

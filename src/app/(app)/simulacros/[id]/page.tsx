@@ -12,6 +12,7 @@ import { CorreccionDetallada } from "@/components/correccion-detallada";
 import { EntregaEnPapel } from "@/components/entrega-en-papel";
 import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { useSesion } from "@/datos/sesion";
+import { olvidar } from "@/datos/cache";
 import { CRITERIOS_TEMA } from "@/ia/corregir-tema";
 import type { CorreccionSupuesto } from "@/ia/supuestos";
 
@@ -177,6 +178,9 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
         } catch {
           // Sin borrador que limpiar.
         }
+        // La lista y Mi examen ya no deben enseñarlo como empezado.
+        olvidar("simulacros:");
+        olvidar("inicio:");
         router.push("/simulacros");
         return;
       }
@@ -245,6 +249,9 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
       } catch {
         // Da igual: el examen ya está entregado y corregido en la cuenta.
       }
+      // Hay nota nueva: que la lista y Mi examen no enseñen lo de antes.
+      olvidar("simulacros:");
+      olvidar("inicio:");
       setVersion((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se ha podido entregar.");

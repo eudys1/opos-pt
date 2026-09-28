@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -9,6 +9,7 @@ import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { fechaCorta } from "@/nucleo/fechas";
 import { hechosEnLaRonda, probabilidadDeDominado } from "@/nucleo/sorteo";
 
@@ -53,16 +54,18 @@ function duracion(minutos: number): string {
   return `${Math.floor(minutos / 60)} h ${String(minutos % 60).padStart(2, "0")} min`;
 }
 
+type Resumen = {
+  historial: Simulacro[];
+  supuestos: string[];
+  elegidos: { simulacro_id: string; tipo: string; elegido_id: string }[];
+  dominados: number;
+};
+
 export default function PaginaSimulacros() {
   const router = useRouter();
   const { temas, perfil } = useCuaderno();
   const { usuario, cliente } = useSesion();
 
-  const [historial, setHistorial] = useState<Simulacro[]>([]);
-  const [elegidos, setElegidos] = useState<{ simulacro_id: string; tipo: string; elegido_id: string }[]>([]);
-  const [supuestosDisponibles, setSupuestos] = useState<string[]>([]);
-  const [dominados, setDominados] = useState(0);
-  const [pedidos, setPedidos] = useState(false);
 
   const [reloj, setReloj] = useState<Reloj>("real");
   const [trampa, setTrampa] = useState(false);
@@ -73,38 +76,37 @@ export default function PaginaSimulacros() {
   const estudiados = temas.filter((t) => t.estadoEstudio !== "por_estudiar");
   const minimo = perfil.examen.minimoTemasParaSimulacro;
 
-  useEffect(() => {
-    if (!cliente || !usuario) return;
-    let vivo = true;
-    void (async () => {
-      const [{ data: sims }, { data: sups }, { data: dominio }, { data: partes }] =
-        await Promise.all([
-          cliente
-            .from("simulacros")
-            .select("*")
-            .order("creado_en", { ascending: false })
-            .limit(60),
-          cliente.from("supuestos").select("id"),
-          cliente.from("dominio_por_tema").select("tema_id, dominio, intentos"),
-          cliente
-            .from("simulacro_partes")
-            .select("simulacro_id, tipo, elegido_id")
-            .not("elegido_id", "is", null),
-        ]);
-      if (!vivo) return;
-      setHistorial((sims ?? []) as Simulacro[]);
-      setSupuestos((sups ?? []).map((s) => s.id as string));
-      setElegidos((partes ?? []) as { simulacro_id: string; tipo: string; elegido_id: string }[]);
-      setDominados(
-        (dominio ?? []).filter((d) => Number(d.dominio ?? 0) >= 0.8 && Number(d.intentos) >= 5)
-          .length,
-      );
-      setPedidos(true);
-    })();
-    return () => {
-      vivo = false;
-    };
-  }, [cliente, usuario]);
+  // Recordado entre visitas (src/datos/cache.ts). La pantalla del simulacro lo
+  // olvida al entregar o abandonar, para no enseñar un instante uno "en curso"
+  // que ya ha terminado.
+  const { datos: leido, listo: pedidos } = useRecordado<Resumen>(
+    cliente && usuario ? `simulacros:${usuario.id}` : null,
+    async () => {
+      const [sims, sups, dominio, partes] = await Promise.all([
+        cliente!.from("simulacros").select("*").order("creado_en", { ascending: false }).limit(60),
+        cliente!.from("supuestos").select("id"),
+        cliente!.from("dominio_por_tema").select("tema_id, dominio, intentos"),
+        cliente!
+          .from("simulacro_partes")
+          .select("simulacro_id, tipo, elegido_id")
+          .not("elegido_id", "is", null),
+      ]);
+      const fallo = sims.error ?? sups.error ?? dominio.error ?? partes.error;
+      if (fallo) throw new Error(fallo.message);
+      return {
+        historial: (sims.data ?? []) as Simulacro[],
+        supuestos: (sups.data ?? []).map((x) => x.id as string),
+        elegidos: (partes.data ?? []) as Resumen["elegidos"],
+        dominados: (dominio.data ?? []).filter(
+          (d) => Number(d.dominio ?? 0) >= 0.8 && Number(d.intentos) >= 5,
+        ).length,
+      };
+    },
+  );
+  const historial = useMemo(() => leido?.historial ?? [], [leido]);
+  const elegidos = useMemo(() => leido?.elegidos ?? [], [leido]);
+  const supuestosDisponibles = useMemo(() => leido?.supuestos ?? [], [leido]);
+  const dominados = leido?.dominados ?? 0;
 
   // La ronda: qué temas y supuestos quedan por hacer antes de que vuelvan todos.
   const ronda = useMemo(() => {

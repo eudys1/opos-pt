@@ -473,9 +473,18 @@
 .escalona > :nth-child(6) { animation-delay: 350ms; }
 .escalona > :nth-child(n + 7) { animation-delay: 420ms; }
 
-/* Al cambiar de pantalla dentro de la app, el contenido entra suave. */
+/*
+  Al cambiar de pantalla dentro de la app, el contenido aparece con un fundido.
+  Solo opacidad: nada se desplaza, así cambiar de sección no se siente como un
+  salto.
+*/
 .pantalla {
-  animation: entrar 380ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+  animation: fundido 260ms cubic-bezier(0.22, 0.68, 0.3, 1) backwards;
+}
+@keyframes fundido {
+  from {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

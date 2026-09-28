@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
 import { Ficha } from "@/components/ui/ficha";
@@ -9,6 +9,7 @@ import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { CorreccionDetallada } from "@/components/correccion-detallada";
 import { LeerArchivo } from "@/components/leer-archivo";
 import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { RUBRICA_POR_DEFECTO } from "@/contenido/supuestos";
 import type { CorreccionSupuesto } from "@/ia/supuestos";
 
@@ -36,31 +37,27 @@ type Vista =
 
 export default function PaginaSupuestos() {
   const { usuario, cliente } = useSesion();
-  const [supuestos, setSupuestos] = useState<Supuesto[]>([]);
-  const [version, setVersion] = useState(0);
-  const [pedidos, setPedidos] = useState(false);
   const [vista, setVista] = useState<Vista>({ tipo: "lista" });
   const [error, setError] = useState("");
   const [generando, setGenerando] = useState(false);
   const [aBorrar, setABorrar] = useState<Supuesto | null>(null);
 
-  useEffect(() => {
-    if (!cliente || !usuario) return;
-    let vivo = true;
-    void (async () => {
-      const { data, error: e } = await cliente
-        .from("supuestos")
-        .select("*")
-        .order("creado_en", { ascending: false });
-      if (!vivo) return;
-      if (e) setError(e.message);
-      setSupuestos((data ?? []) as Supuesto[]);
-      setPedidos(true);
-    })();
-    return () => {
-      vivo = false;
-    };
-  }, [cliente, usuario, version]);
+  // Recordado entre visitas (src/datos/cache.ts); tras crear, editar o borrar
+  // se vuelve a pedir con `recargar`.
+  const {
+    datos: leidos,
+    listo: pedidos,
+    error: errorCarga,
+    recargar,
+  } = useRecordado<Supuesto[]>(cliente && usuario ? `supuestos:${usuario.id}` : null, async () => {
+    const { data, error: e } = await cliente!
+      .from("supuestos")
+      .select("*")
+      .order("creado_en", { ascending: false });
+    if (e) throw new Error(e.message);
+    return (data ?? []) as Supuesto[];
+  });
+  const supuestos = leidos ?? [];
 
   async function generar() {
     setGenerando(true);
@@ -73,7 +70,7 @@ export default function PaginaSupuestos() {
       });
       const datos = await respuesta.json();
       if (!respuesta.ok) throw new Error(datos.error ?? "No se ha podido crear el supuesto.");
-      setVersion((v) => v + 1);
+      recargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se ha podido crear el supuesto.");
     } finally {
@@ -86,14 +83,14 @@ export default function PaginaSupuestos() {
     const { error: e } = await cliente.from("supuestos").delete().eq("id", supuesto.id);
     setABorrar(null);
     if (e) setError(e.message);
-    setVersion((v) => v + 1);
+    recargar();
   }
 
   if (!usuario) return null;
 
   const volver = () => {
     setVista({ tipo: "lista" });
-    setVersion((v) => v + 1);
+    recargar();
   };
 
   if (vista.tipo === "practicar") return <PracticaSupuesto supuesto={vista.supuesto} onVolver={volver} />;
@@ -132,12 +129,12 @@ export default function PaginaSupuestos() {
         />
       ) : null}
 
-      {error ? (
+      {error || errorCarga ? (
         <p
           role="alert"
           className="rounded-pliegue border border-margen-hilo bg-margen-fondo px-4 py-2 text-[0.92rem]"
         >
-          {error}
+          {error || `No se han podido leer tus supuestos (${errorCarga}). Recarga la página.`}
         </p>
       ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
@@ -9,6 +9,7 @@ import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { TarjetaPregunta, type Item, type Veredicto } from "@/components/tarjeta-pregunta";
 import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { moverEnLaCola } from "@/datos/cola-fallos";
 import { ACIERTOS_PARA_SUPERAR } from "@/nucleo/fallos";
 import { cuando, hoyISO } from "@/nucleo/fechas";
@@ -50,9 +51,6 @@ export default function PaginaFallos() {
   const { usuario, cliente } = useSesion();
   const hoy = hoyISO();
 
-  const [filas, setFilas] = useState<FilaFallo[]>([]);
-  const [datosPedidos, setDatosPedidos] = useState(false);
-  const [error, setError] = useState("");
 
   const [alcance, setAlcance] = useState<Alcance>("hoy");
   const [temaFiltro, setTemaFiltro] = useState<string>("");
@@ -63,37 +61,42 @@ export default function PaginaFallos() {
   const [indice, setIndice] = useState(0);
   const [superados, setSuperados] = useState(0);
 
-  const [version, setVersion] = useState(0);
-  const recargar = useCallback(() => setVersion((v) => v + 1), []);
-
-  useEffect(() => {
-    if (!cliente || !usuario) return;
-    let vivo = true;
-    void (async () => {
-      const { data, error: e } = await cliente
-        .from("fallos")
-        .select(
-          `item_id, tema_id, proxima_fecha, aciertos_seguidos, veces_fallado, resuelto_en, items(${CAMPOS_ITEM})`,
-        )
-        .order("proxima_fecha");
-      if (!vivo) return;
-      if (e) setError(e.message);
-      setFilas((data ?? []) as unknown as FilaFallo[]);
-      setDatosPedidos(true);
-    })();
-    return () => {
-      vivo = false;
-    };
-  }, [cliente, usuario, version]);
+  // Recordado entre visitas (src/datos/cache.ts): al volver se ve al momento y
+  // se pone al día por detrás. Tras repasar, `recargar` lo vuelve a pedir.
+  const {
+    datos: filasLeidas,
+    listo: datosPedidos,
+    error,
+    recargar,
+  } = useRecordado<FilaFallo[]>(cliente && usuario ? `fallos:${usuario.id}` : null, async () => {
+    const { data, error: e } = await cliente!
+      .from("fallos")
+      .select(
+        `item_id, tema_id, proxima_fecha, aciertos_seguidos, veces_fallado, resuelto_en, items(${CAMPOS_ITEM})`,
+      )
+      .order("proxima_fecha");
+    if (e) throw new Error(e.message);
+    return (data ?? []) as unknown as FilaFallo[];
+  });
+  const filas = useMemo(() => filasLeidas ?? [], [filasLeidas]);
 
   const abiertos = useMemo(() => filas.filter((f) => !f.resuelto_en && f.items), [filas]);
   const tocanHoy = abiertos.filter((f) => f.proxima_fecha <= hoy);
   const masFallados = [...abiertos].sort((a, b) => b.veces_fallado - a.veces_fallado).slice(0, 6);
 
-  const temasConFallos = useMemo(() => {
-    const ids = new Set(abiertos.map((f) => f.tema_id));
-    return temas.filter((t) => ids.has(t.id));
-  }, [abiertos, temas]);
+  // En el filtro salen todos los temas subidos, no solo los que tienen fallos:
+  // si uno no aparecía, parecía que la app no lo conocía. Cada uno dice cuántos
+  // fallos tiene en lo que se está mirando (hoy o todos los abiertos).
+  const temasDelFiltro = useMemo(() => {
+    const base = alcance === "hoy" ? tocanHoy : abiertos;
+    const cuantos = new Map<string, number>();
+    for (const f of base) cuantos.set(f.tema_id, (cuantos.get(f.tema_id) ?? 0) + 1);
+    const conFallosAbiertos = new Set(abiertos.map((f) => f.tema_id));
+    return temas
+      .filter((t) => t.estadoContenido !== "sin_contenido" || conFallosAbiertos.has(t.id))
+      .map((t) => ({ tema: t, fallos: cuantos.get(t.id) ?? 0 }));
+  }, [alcance, tocanHoy, abiertos, temas]);
+  const temaElegido = temasDelFiltro.find((t) => t.tema.id === temaFiltro);
   const tiposConFallos = useMemo(
     () => [...new Set(abiertos.map((f) => f.items!.tipo))],
     [abiertos],
@@ -109,7 +112,6 @@ export default function PaginaFallos() {
 
   const empezar = useCallback(async () => {
     if (!cliente || seleccion.length === 0) return;
-    setError("");
     const ids = seleccion.map((f) => f.item_id);
 
     // 1. Variantes de las que aún no tienen. En tandas, con progreso a la vista.
@@ -341,12 +343,22 @@ export default function PaginaFallos() {
                 className="mt-1.5 w-full rounded-pliegue border border-linea bg-papel-alto px-3 py-2.5 text-[0.95rem]"
               >
                 <option value="">Todos los temas</option>
-                {temasConFallos.map((t) => (
+                {temasDelFiltro.map(({ tema: t, fallos }) => (
                   <option key={t.id} value={t.id}>
-                    Tema {t.numero} · {tituloCorto(t.titulo, 40)}
+                    Tema {t.numero} · {tituloCorto(t.titulo, 34)} ({fallos === 0 ? "sin fallos" : fallos})
                   </option>
                 ))}
               </select>
+              {temaElegido && temaElegido.fallos === 0 ? (
+                <p className="mt-1.5 text-[0.84rem] leading-snug text-apagado">
+                  El tema {temaElegido.tema.numero} no tiene fallos{" "}
+                  {alcance === "hoy" ? "que toquen hoy" : "abiertos"}: o lo que has respondido de él está
+                  bien, o aún no has practicado con él.{" "}
+                  <Link href={`/practicar?tema=${temaElegido.tema.id}`} className="regla font-bold text-tinta">
+                    Practicar ese tema
+                  </Link>
+                </p>
+              ) : null}
             </div>
             <div>
               <label htmlFor="filtro-tipo" className="block text-[0.9rem] font-semibold text-tinta">

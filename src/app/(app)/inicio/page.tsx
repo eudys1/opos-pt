@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { Ficha } from "@/components/ui/ficha";
@@ -8,6 +8,7 @@ import { BotonEnlace } from "@/components/ui/boton";
 import { SECCIONES_APP, type ClaveSeccion } from "@/components/ui/secciones";
 import { useCuaderno, temasConContenido } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { agenda } from "@/nucleo/agenda";
 import { hoyISO } from "@/nucleo/fechas";
 import { Cifra } from "@/components/ui/cifra";
@@ -36,32 +37,31 @@ type Datos = {
 export default function PaginaInicio() {
   const { temas, eventos, objetivos, perfil, cargado } = useCuaderno();
   const { usuario, cliente } = useSesion();
-  const [datos, setDatos] = useState<Datos | null>(null);
   const hoy = hoyISO();
 
-  useEffect(() => {
-    if (!cliente || !usuario) return;
-    let vivo = true;
-    void (async () => {
+  // Recordado entre visitas: al volver a Mi examen se pinta al instante con lo
+  // de la última vez y se actualiza por detrás, sin saltos.
+  const { datos, listo } = useRecordado<Datos>(
+    cliente && usuario ? `inicio:${usuario.id}:${hoy}` : null,
+    async () => {
       const [sup, items, fallosHoy, fallosAbiertos, sims, normas] = await Promise.all([
-        cliente.from("supuestos").select("id, solucion_de_academia"),
-        cliente.from("items").select("id", { count: "exact", head: true }).is("variante_de", null),
-        cliente
+        cliente!.from("supuestos").select("id, solucion_de_academia"),
+        cliente!.from("items").select("id", { count: "exact", head: true }).is("variante_de", null),
+        cliente!
           .from("fallos")
           .select("item_id", { count: "exact", head: true })
           .is("resuelto_en", null)
           .lte("proxima_fecha", hoy),
-        cliente.from("fallos").select("item_id", { count: "exact", head: true }).is("resuelto_en", null),
-        cliente
+        cliente!.from("fallos").select("item_id", { count: "exact", head: true }).is("resuelto_en", null),
+        cliente!
           .from("simulacros")
           .select("nota")
           .eq("estado", "corregido")
           .order("creado_en", { ascending: false })
           .limit(1),
-        cliente.from("normas").select("id", { count: "exact", head: true }),
+        cliente!.from("normas").select("id", { count: "exact", head: true }),
       ]);
-      if (!vivo) return;
-      setDatos({
+      return {
         supuestos: sup.data?.length ?? 0,
         conResolucion: (sup.data ?? []).filter((s) => s.solucion_de_academia).length,
         preguntas: items.count ?? 0,
@@ -69,12 +69,9 @@ export default function PaginaInicio() {
         fallosAbiertos: fallosAbiertos.count ?? 0,
         ultimaNota: sims.data?.[0]?.nota != null ? Number(sims.data[0].nota) : null,
         normas: normas.count ?? 0,
-      });
-    })();
-    return () => {
-      vivo = false;
-    };
-  }, [cliente, usuario, hoy]);
+      };
+    },
+  );
 
   const deHoy = useMemo(
     () =>
@@ -88,7 +85,9 @@ export default function PaginaInicio() {
     [eventos, objetivos, temas, perfil.intervalosRepaso, hoy],
   );
 
-  if (!cargado) return <p className="text-apagado">Abriendo el cuaderno…</p>;
+  // La primera vez se espera a los datos de la cuenta antes de pintar: con
+  // ellos a medias, el titular y las tarjetas cambiaban al llegar y todo saltaba.
+  if (!cargado || !listo) return <p className="text-apagado">Abriendo el cuaderno…</p>;
 
   const pendientes = deHoy.filter((e) => e.estado !== "hecho");
   const hechos = deHoy.filter((e) => e.estado === "hecho");
@@ -356,7 +355,7 @@ function Acceso({
       </span>
       <span className="text-right">
         <span className={clsx("block font-display text-[1.4rem] font-bold leading-none", texto)} data-numerico>
-          <Cifra valor={dato} />
+          <Cifra valor={dato} clave={`inicio:${href}`} />
         </span>
         <span className="text-[0.7rem] font-bold text-apagado">{unidad}</span>
       </span>

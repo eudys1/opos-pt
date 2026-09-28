@@ -188,7 +188,7 @@ function Dato({
           className={clsx("font-display text-[1.8rem] font-bold leading-tight", acento && "text-acento")}
           data-numerico
         >
-          <Cifra valor={valor} />
+          <Cifra valor={valor} clave={`progreso:${titulo}`} />
         </span>
         {pie ? <span className="mt-0.5 block text-[0.8rem] text-apagado">{pie}</span> : null}
       </dd>

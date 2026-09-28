@@ -42,8 +42,8 @@ if (!token) {
       "  3. Copia el token (empieza por sbp_) y pégalo en .env.local:",
       "     SUPABASE_ACCESS_TOKEN=sbp_...",
       "",
-      "Mientras tanto, la alternativa manual sigue siendo pegar",
-      "supabase/migrations/PENDIENTES.sql en el SQL Editor de Supabase.",
+      "Mientras tanto, la alternativa manual es pegar en el SQL Editor de Supabase,",
+      "en orden, los archivos de supabase/migrations/ que falten.",
     ].join("\n"),
   );
   process.exit(1);
