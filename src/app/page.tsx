@@ -8,6 +8,7 @@ import { SelectorTema } from "@/components/selector-tema";
 import { SECCIONES } from "@/components/ui/secciones";
 import type { TipoActividad } from "@/nucleo/tipos";
 import { RelojMuestra } from "@/components/reloj-muestra";
+import { Cifra } from "@/components/ui/cifra";
 
 export const metadata: Metadata = {
   title: "Cuaderno · tu oposición, ordenada",
@@ -119,10 +120,38 @@ const MUESTRA_HOY: { texto: string; color: TipoActividad; tarde?: boolean }[] = 
   { texto: "4 fallos", color: "practica" },
 ];
 
+const TITULO = "Estudiar 25 temas sin perder el hilo.".split(" ");
+
+/**
+ * El hilo que se dibuja bajo «hilo»: un trazo a mano, algo irregular, en el
+ * naranja del acento. pathLength=1 deja animarlo sin medir la curva.
+ */
+function Hilo() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 120 14"
+      preserveAspectRatio="none"
+      className="pointer-events-none absolute -bottom-[0.12em] left-0 h-[0.28em] w-full overflow-visible text-acento-vivo"
+    >
+      <path
+        className="hilo-trazo"
+        pathLength={1}
+        d="M2 9 C 18 3, 30 12, 46 7 S 74 2, 88 8 S 110 11, 118 5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 export default function Portada() {
   return (
     <>
-      <header className="sticky top-0 z-40 border-b-[3px] border-borde bg-papel/95 backdrop-blur-sm">
+      <header className="cabecera-viva sticky top-0 z-40 border-b-[3px] border-borde bg-papel/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:gap-4 sm:px-8">
           <Link href="/" className="shrink-0 rounded-pliegue">
             <Marca className="text-[1.3rem] sm:text-[1.5rem]" />
@@ -158,7 +187,16 @@ export default function Portada() {
         <section className="mx-auto grid max-w-6xl gap-10 px-5 py-12 sm:px-8 lg:grid-cols-2 lg:gap-12 lg:py-16">
           <div className="escalona flex flex-col gap-5 lg:pt-4">
             <h1 className="text-[2.7rem] leading-[1.05] sm:text-[3.3rem] lg:text-titulo">
-              Estudiar 25 temas sin perder el hilo.
+              {TITULO.map((palabra, i) => (
+                <span key={i}>
+                  <span className="palabra" style={{ "--i": i } as React.CSSProperties}>
+                    <span className={palabra === "hilo." ? "relative" : undefined}>
+                      {palabra}
+                      {palabra === "hilo." ? <Hilo /> : null}
+                    </span>
+                  </span>{" "}
+                </span>
+              ))}
             </h1>
             <p className="max-w-[48ch] text-[1.12rem] leading-relaxed text-apagado">
               Cada día te dice qué toca, te lo pregunta con tus propios apuntes y te apunta lo que
@@ -184,9 +222,9 @@ export default function Portada() {
                 ["4 h 30", "el examen completo", "border-sec-simulacro-vivo"],
                 ["3", "formas de meter tus temas", "border-sec-practica-vivo"],
               ].map(([dato, texto, borde]) => (
-                <li key={texto} className={clsx("levanta rounded-[16px] border-2 bg-papel-alto px-3 py-3 text-center", borde)}>
+                <li key={texto} className={clsx("flota rounded-[16px] border-2 bg-papel-alto px-3 py-3 text-center", borde)}>
                   <span className="block font-display text-[1.4rem] font-bold leading-none" data-numerico>
-                    {dato}
+                    <Cifra valor={dato} />
                   </span>
                   <span className="mt-1 block text-[0.75rem] font-bold text-apagado">{texto}</span>
                 </li>
@@ -195,10 +233,10 @@ export default function Portada() {
           </div>
 
           <div className="entra flex flex-col gap-4 [animation-delay:160ms]">
-            <Ficha destacada className="flex flex-col gap-4 px-5 py-5">
+            <Ficha destacada className="paralaje-rapido flex flex-col gap-4 px-5 py-5">
               <div className="flex items-center gap-3">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-acento-vivo font-display text-[1.4rem] font-bold text-sobre-boton">
-                  18
+                  <Cifra valor="18" duracion={1400} />
                 </span>
                 <div>
                   <p className="font-display text-[1.2rem] font-semibold">¡18 días seguidos!</p>
@@ -225,7 +263,7 @@ export default function Portada() {
               </div>
             </Ficha>
 
-            <div className="rounded-ficha border-[3px] border-borde bg-sec-temario-fondo px-5 py-4">
+            <div className="paralaje-lento rounded-ficha border-[3px] border-borde bg-sec-temario-fondo px-5 py-4">
               <p className="font-display text-[1.1rem] font-semibold text-sec-temario">El camino del temario</p>
               <ol className="mt-3 flex flex-wrap gap-2" aria-label="Ejemplo: estado de cada tema">
                 {Array.from({ length: 25 }, (_, i) => {
@@ -264,14 +302,27 @@ export default function Portada() {
         <section id="como-funciona" className="scroll-mt-20">
           <div className="mx-auto max-w-6xl px-5 pb-14 sm:px-8">
             <h2 className="revela text-[1.9rem] sm:text-[2.2rem]">Cómo va</h2>
-            <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {pasos.map((paso) => (
-                <li key={paso.titulo} className={clsx("revela rounded-[20px] px-5 py-4", SECCIONES[paso.color].fondo)}>
-                  <h3 className={clsx("text-[1.1rem]", SECCIONES[paso.color].texto)}>{paso.titulo}</h3>
-                  <p className="mt-1.5 text-[0.93rem] leading-relaxed text-texto">{paso.texto}</p>
-                </li>
-              ))}
-            </ol>
+            <div className="relative mt-5 lg:mt-10">
+              <span
+                aria-hidden="true"
+                className="hilo-pasos pointer-events-none absolute -top-[22px] left-[12.5%] right-[12.5%] hidden h-[3px] rounded-full bg-borde lg:block"
+              />
+              <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {pasos.map((paso) => (
+                  <li key={paso.titulo} className={clsx("revela relative rounded-[20px] px-5 py-4", SECCIONES[paso.color].fondo)}>
+                    <span
+                      aria-hidden="true"
+                      className={clsx(
+                        "nudo absolute -top-[30px] left-1/2 hidden h-[19px] w-[19px] -translate-x-1/2 rounded-full border-[3px] border-borde lg:block",
+                        SECCIONES[paso.color].lleno,
+                      )}
+                    />
+                    <h3 className={clsx("text-[1.1rem]", SECCIONES[paso.color].texto)}>{paso.titulo}</h3>
+                    <p className="mt-1.5 text-[0.93rem] leading-relaxed text-texto">{paso.texto}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
         </section>
 
@@ -284,7 +335,7 @@ export default function Portada() {
             <div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {apartados.map((a) => (
                 <div key={a.titulo} className="revela">
-                  <Ficha className="levanta group flex h-full gap-3 px-5 py-5">
+                  <Ficha className="flota group flex h-full gap-3 px-5 py-5">
                     <span
                       aria-hidden="true"
                       className={clsx(

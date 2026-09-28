@@ -307,6 +307,20 @@
     transform: translate(2px, 2px);
     box-shadow: 2px 2px 0 var(--color-sombra);
   }
+
+  /*
+    Lo mismo para lo que solo informa: se levanta al pasar, que da vida, pero
+    no se hunde al pulsar. Hundirse es lo que promete un clic, y aquí no lo hay.
+  */
+  .flota {
+    transition:
+      transform 220ms cubic-bezier(0.22, 0.68, 0.3, 1),
+      box-shadow 220ms cubic-bezier(0.22, 0.68, 0.3, 1);
+  }
+  .flota:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 7px 7px 0 var(--color-sombra);
+  }
 }
 
 /*
@@ -325,7 +339,8 @@
     width: 50%;
   }
   .levanta:hover,
-  .levanta:active {
+  .levanta:active,
+  .flota:hover {
     transform: none;
   }
 }
@@ -470,5 +485,124 @@
   .pantalla,
   .casilla-llena {
     animation: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------ portada
+  Todo el movimiento de la portada cuenta la misma idea que el lema: no
+  perder el hilo. Las palabras del título suben una a una, bajo «hilo» se
+  dibuja un hilo, y ese hilo reaparece uniendo los pasos de «Cómo va».
+*/
+
+/* Palabras que suben desde detrás de una máscara, cada una con su --i. */
+.palabra {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* Hueco para los descendentes (la g, la p) que la máscara cortaría. */
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+.palabra > span {
+  display: inline-block;
+  animation: subir 900ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+@keyframes subir {
+  from {
+    transform: translateY(105%);
+  }
+}
+
+/* El hilo bajo «hilo»: se dibuja cuando ya han subido las palabras. */
+.hilo-trazo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hilo 1100ms cubic-bezier(0.65, 0, 0.35, 1) 650ms forwards;
+}
+@keyframes hilo {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* El hilo de «Cómo va» se traza mientras bajas, y cada paso se enciende. */
+@supports (animation-timeline: view()) {
+  .hilo-pasos {
+    transform-origin: left center;
+    animation: tender linear both;
+    animation-timeline: view();
+    animation-range: entry 30% cover 45%;
+  }
+  .nudo {
+    animation: nudo linear both;
+    animation-timeline: view();
+    animation-range: entry 60% cover 40%;
+  }
+
+  /*
+    Paralaje suave del héroe, solo con las dos columnas lado a lado: la
+    tarjeta de arriba sube más deprisa que la de abajo, así se separan (nunca
+    se pisan) y se nota la profundidad. En móvil van apiladas y no se mueven.
+  */
+  @media (min-width: 1024px) {
+    .paralaje-lento {
+      animation: paralaje-lento linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 70vh;
+    }
+    .paralaje-rapido {
+      animation: paralaje-rapido linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 70vh;
+    }
+  }
+
+  /* La cabecera se despega de la página al empezar a bajar. */
+  .cabecera-viva {
+    animation: despegar linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 90px;
+  }
+}
+@keyframes tender {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes nudo {
+  from {
+    transform: scale(0.3);
+    opacity: 0.2;
+  }
+}
+@keyframes paralaje-lento {
+  to {
+    transform: translateY(-28px);
+  }
+}
+@keyframes paralaje-rapido {
+  to {
+    transform: translateY(-64px);
+  }
+}
+@keyframes despegar {
+  to {
+    box-shadow: 0 5px 0 var(--color-sombra);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .palabra > span,
+  .hilo-pasos,
+  .nudo,
+  .paralaje-lento,
+  .paralaje-rapido,
+  .cabecera-viva {
+    animation: none !important;
+  }
+  .hilo-trazo {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }

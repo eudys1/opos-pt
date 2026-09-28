@@ -102,6 +102,14 @@ en el menú. Fredoka (titulares y cifras) sobre Nunito (texto). Todo en `src/app
   un color, volver a pasar axe.
 - Movimiento: `.entra`, `.levanta`, `.regla`, `.trazo`, `.progreso-vivo`. Cola larga, sin rebote,
   y todo se desactiva con `prefers-reduced-motion`.
+- **`.levanta` solo en lo que se puede pulsar**: se levanta al pasar y se hunde al pulsar, y
+  hundirse promete que algo va a pasar. Lo que solo informa lleva **`.flota`**: se levanta igual
+  al pasar, pero al hacer clic no hace nada.
+- Portada: el movimiento cuenta la idea del lema, «no perder el hilo». Palabras que suben
+  (`.palabra`), el hilo dibujado bajo «hilo» (`.hilo-trazo`), el hilo que une los pasos de «Cómo
+  va» al bajar (`.hilo-pasos`, `.nudo`), paralaje del héroe solo en escritorio y cabecera que se
+  despega (`.cabecera-viva`). Lo ligado al scroll va dentro de `@supports (animation-timeline:
+  view())`: donde no hay soporte, se ve quieto y completo.
 
 ## Trampas que ya costaron tiempo
 
