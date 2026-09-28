@@ -509,7 +509,7 @@
   overflow: hidden;
   vertical-align: bottom;
   /* Hueco para los descendentes (la g, la p) que la máscara cortaría. */
-  padding-bottom: 0.08em;
+  padding-bottom: 0.12em;
   margin-bottom: -0.08em;
 }
 .palabra > span {
