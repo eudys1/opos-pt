@@ -1,17 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { Ficha } from "@/components/ui/ficha";
 import { Boton } from "@/components/ui/boton";
 import { Visto } from "@/components/marcas";
 import { EditorHito, type HitoAEditar } from "@/components/editor-hito";
+import { CeldaInicio, EditorInicio, EditorRepasos } from "@/components/registro-extra";
+import type { Tema } from "@/nucleo/tipos";
 import { useCuaderno } from "@/datos/almacen";
+import { useSesion } from "@/datos/sesion";
+import { useRecordado } from "@/datos/cache";
 import { tituloCorto } from "@/contenido/temario-pt";
 import { cuando, fechaCorta, hoyISO } from "@/nucleo/fechas";
 import { progresoDelTema, type CasillaRepaso } from "@/nucleo/repasos";
 import { reprogramadosPorTema } from "@/nucleo/agenda";
 import { calcularRacha } from "@/nucleo/racha";
+import { Casilla as CasillaMarcar } from "@/components/ui/campos";
 
 /**
  * Registro de estudio: una fila por tema, una casilla por paso.
@@ -22,8 +28,21 @@ import { calcularRacha } from "@/nucleo/racha";
  */
 export default function PaginaRegistro() {
   const { temas, eventos, objetivos, perfil, cargado } = useCuaderno();
+  const { usuario, cliente } = useSesion();
+  // Qué temas tienen prácticas (test, cortas…): eso también es haberlos
+  // empezado. Las prácticas viven en la cuenta, no en el cuaderno local.
+  const { datos: practicados } = useRecordado<string[]>(
+    cliente && usuario ? `registro-practicados:${usuario.id}` : null,
+    async () => {
+      const { data, error } = await cliente!.from("dominio_por_tema").select("tema_id, intentos");
+      if (error) throw new Error(error.message);
+      return (data ?? []).filter((d) => Number(d.intentos) > 0).map((d) => d.tema_id as string);
+    },
+  );
   const [soloPendientes, setSoloPendientes] = useState(false);
   const [editando, setEditando] = useState<HitoAEditar | null>(null);
+  const [planeando, setPlaneando] = useState<Tema | null>(null);
+  const [editandoRepasos, setEditandoRepasos] = useState(false);
   const hoy = hoyISO();
 
   const reprogramados = useMemo(() => reprogramadosPorTema(objetivos), [objetivos]);
@@ -67,15 +86,9 @@ export default function PaginaRegistro() {
               : `Vas por la ${vueltas + 1}.ª vuelta al temario. Pulsa cualquier casilla para marcarla, cambiarle el día o desmarcarla.`}
           </p>
         </div>
-        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-[0.95rem] text-texto">
-          <input
-            type="checkbox"
-            checked={soloPendientes}
-            onChange={(e) => setSoloPendientes(e.target.checked)}
-            className="h-4 w-4 accent-[color:var(--color-acento)]"
-          />
+        <CasillaMarcar marcada={soloPendientes} onCambio={setSoloPendientes}>
           Ver solo lo que toca
-        </label>
+        </CasillaMarcar>
       </header>
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -91,7 +104,7 @@ export default function PaginaRegistro() {
       </dl>
 
       <Ficha className="overflow-x-auto">
-        <table className="w-full min-w-[46rem] border-collapse text-[0.95rem]">
+        <table className="w-full min-w-[54rem] border-collapse text-[0.95rem]">
           <caption className="px-5 pb-3 pt-4 text-left text-[0.85rem] text-apagado">
             <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
               <span className="inline-flex items-center gap-1.5">
@@ -118,6 +131,13 @@ export default function PaginaRegistro() {
               <th scope="col" className="border-y border-linea px-5 py-2.5 text-left font-semibold">
                 Tema
               </th>
+              <th
+                scope="col"
+                className="w-24 border-y border-linea px-2 py-2.5 font-semibold text-apagado"
+                title="El día que te propones empezar a estudiarlo"
+              >
+                Empezar
+              </th>
               <th scope="col" className="w-24 border-y border-linea px-2 py-2.5 font-semibold text-sec-temario">
                 Estudiado
               </th>
@@ -131,6 +151,17 @@ export default function PaginaRegistro() {
                   R{i + 1}
                 </th>
               ))}
+              <th scope="col" className="w-12 border-y border-linea px-1 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEditandoRepasos(true)}
+                  title="Añadir o quitar repasos (para todos los temas)"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-dashed border-sec-repaso-vivo text-[1.05rem] font-extrabold text-sec-repaso hover:bg-sec-repaso-fondo"
+                >
+                  <span aria-hidden="true">+</span>
+                  <span className="sr-only">Añadir o quitar repasos, para todos los temas</span>
+                </button>
+              </th>
               <th scope="col" className="w-44 border-y border-linea px-5 py-2.5 text-right font-semibold">
                 Siguiente
               </th>
@@ -146,8 +177,16 @@ export default function PaginaRegistro() {
                   <span className={tema.estadoContenido === "sin_contenido" ? "text-tenue" : "font-bold"}>
                     {tituloCorto(tema.titulo)}
                   </span>
-                  <EstadoSubida estado={tema.estadoContenido} />
+                  <EstadoSubida estado={tema.estadoContenido} numero={tema.numero} />
                 </th>
+
+                <td className="border-b border-linea-suave px-1.5 py-1.5 text-center">
+                  <CeldaInicio
+                    tema={tema}
+                    practicado={practicados?.includes(tema.id) ?? false}
+                    onPulsar={() => setPlaneando(tema)}
+                  />
+                </td>
 
                 {progreso.casillas.map((casilla) => (
                   <td key={casilla.indice} className="border-b border-linea-suave px-1.5 py-1.5 text-center">
@@ -158,6 +197,7 @@ export default function PaginaRegistro() {
                     />
                   </td>
                 ))}
+                <td className="border-b border-linea-suave" aria-hidden="true" />
 
                 <td className="border-b border-linea-suave px-5 py-2.5 text-right text-[0.9rem]">
                   <Siguiente progreso={progreso} />
@@ -180,6 +220,12 @@ export default function PaginaRegistro() {
       </Ficha>
 
       <EditorHito hito={editando} onCerrar={() => setEditando(null)} />
+      <EditorInicio
+        tema={planeando}
+        practicado={planeando ? (practicados?.includes(planeando.id) ?? false) : false}
+        onCerrar={() => setPlaneando(null)}
+      />
+      <EditorRepasos abierto={editandoRepasos} onCerrar={() => setEditandoRepasos(false)} />
     </div>
   );
 }
@@ -331,10 +377,21 @@ function Siguiente({ progreso }: { progreso: ReturnType<typeof progresoDelTema> 
  * Si el tema está subido a Mi temario, a la vista en cada fila. Subido, con el
  * violeta de Mi temario; sin subir, discreto pero claro.
  */
-function EstadoSubida({ estado }: { estado: string }) {
+function EstadoSubida({ estado, numero }: { estado: string; numero?: number }) {
   const base = "ml-2 inline-flex items-center rounded-full border-2 px-2 py-0.5 align-middle text-[0.72rem] font-extrabold";
   if (estado === "sin_contenido") {
-    return <span className={clsx(base, "border-dashed border-linea text-tenue")}>sin subir</span>;
+    // En la fila, lleva a Mi temario con ese tema abierto para subirlo.
+    return numero ? (
+      <Link
+        href={`/temario?tema=${numero}`}
+        title={`Subir el tema ${numero}`}
+        className={clsx(base, "border-dashed border-linea text-tenue transition-colors hover:border-sec-temario-vivo hover:text-sec-temario")}
+      >
+        sin subir · subirlo →
+      </Link>
+    ) : (
+      <span className={clsx(base, "border-dashed border-linea text-tenue")}>sin subir</span>
+    );
   }
   if (estado === "borrador_ia") {
     return <span className={clsx(base, "border-dashed border-sec-temario-vivo text-sec-temario")}>borrador IA</span>;

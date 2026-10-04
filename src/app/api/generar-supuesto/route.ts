@@ -46,10 +46,22 @@ export async function POST(peticion: Request) {
 
   const elegidos = (temaIds.length > 0 ? utiles : barajar(utiles).slice(0, 2)).slice(0, 4);
 
+  // Los que ya tiene, en una línea cada uno, para que el nuevo no repita caso.
+  const { data: previos } = await ctx.supabase
+    .from("supuestos")
+    .select("titulo, necesidad, curso")
+    .eq("usuario_id", ctx.usuario.id)
+    .order("creado_en", { ascending: false })
+    .limit(30);
+  const yaTiene = (previos ?? []).map((s) =>
+    [s.titulo, s.necesidad, s.curso].filter(Boolean).join(" · "),
+  );
+
   try {
     const { supuesto, uso } = await generarSupuesto(ctx.ia, {
       temas: elegidos.map((t) => ({ numero: t.numero, titulo: t.titulo, texto: t.texto ?? "" })),
       peticion: encargo,
+      yaTiene,
     });
 
     const { data: guardado, error: errorInsercion } = await ctx.supabase
@@ -58,7 +70,6 @@ export async function POST(peticion: Request) {
         usuario_id: ctx.usuario.id,
         titulo: supuesto.titulo,
         enunciado: supuesto.enunciado,
-        cuestiones: supuesto.cuestiones,
         necesidad: supuesto.necesidad,
         curso: supuesto.curso,
         temas: supuesto.temas,

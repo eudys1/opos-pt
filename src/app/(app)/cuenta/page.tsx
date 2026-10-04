@@ -11,6 +11,7 @@ import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
 import { diasParaExamen } from "@/nucleo/racha";
 import { fechaLarga, hoyISO } from "@/nucleo/fechas";
+import { CampoFecha } from "@/components/ui/campos";
 
 /**
  * Mi cuenta: lo que es de la persona y no del temario. La fecha del examen,
@@ -121,24 +122,16 @@ function FechaExamen({
     <Ficha className="flex flex-col gap-4 px-6 py-5">
       <h2 className="text-xl">Fecha del examen</h2>
       <div className="flex flex-wrap items-end gap-6">
-        <div>
-          <label htmlFor="fecha-examen" className="block text-[0.9rem] font-semibold text-tinta">
-            Fecha estimada
-          </label>
-          <input
-            id="fecha-examen"
-            type="date"
-            value={borrador}
-            onChange={(e) => {
-              setBorrador(e.target.value);
-              setError("");
-              setRecienGuardada(false);
-            }}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? "fecha-examen-error" : "fecha-examen-ayuda"}
-            className="mt-1.5 min-h-11 rounded-pliegue border-2 border-linea bg-papel-alto px-4 py-2"
-          />
-        </div>
+        <CampoFecha
+          etiqueta="Fecha estimada"
+          valor={borrador}
+          onCambio={(f) => {
+            setBorrador(f);
+            setError("");
+            setRecienGuardada(false);
+          }}
+          error={error || undefined}
+        />
         {dias !== null ? (
           <p className="flex items-baseline gap-2">
             <span
@@ -175,13 +168,7 @@ function FechaExamen({
         </p>
       ) : null}
 
-      {error ? (
-        <p id="fecha-examen-error" role="alert" className="text-[0.9rem] font-bold text-margen">
-          {error}
-        </p>
-      ) : null}
-
-      <p id="fecha-examen-ayuda" className="max-w-[62ch] text-[0.88rem] leading-relaxed text-apagado">
+      <p className="max-w-[62ch] text-[0.88rem] leading-relaxed text-apagado">
         {guardada && !cambiada ? `${fechaLarga(guardada)}. ` : ""}
         En Andalucía las plazas de Maestros se aplazaron a 2027: pon una fecha aproximada y
         cámbiala cuando salga la convocatoria. De ella salen la cuenta atrás y el ritmo que

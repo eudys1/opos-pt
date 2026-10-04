@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
 import { textoParaEscuchar } from "@/nucleo/estructura";
+import { Selector } from "@/components/ui/campos";
 
 /**
  * Escuchar un tema mientras vas en el coche o andando.
@@ -12,7 +13,7 @@ import { textoParaEscuchar } from "@/nucleo/estructura";
  * suene a robot. Es el respaldo: la voz natural (generada con `npm run voz`)
  * y las grabaciones propias están en AudiosTema.
  */
-export function ReproductorTema({ texto, titulo }: { texto: string; titulo: string }) {
+export function ReproductorTema({ texto }: { texto: string }) {
   // Se calcula en el primer render del cliente, no en un efecto: así no hay
   // un render de más ni discordancia con lo pintado en el servidor.
   const [soportado] = useState(() => typeof window !== "undefined" && "speechSynthesis" in window);
@@ -109,47 +110,31 @@ export function ReproductorTema({ texto, titulo }: { texto: string; titulo: stri
         </>
       )}
 
-      <label htmlFor={`velocidad-${titulo}`} className="text-[0.85rem] text-apagado">
-        Velocidad
-      </label>
-      <select
-        id={`velocidad-${titulo}`}
-        value={velocidad}
-        onChange={(e) => {
-          setVelocidad(Number(e.target.value));
-          if (hablando) {
-            parar();
-          }
+      <Selector
+        etiqueta="Velocidad"
+        etiquetaOculta
+        className="w-24"
+        valor={String(velocidad)}
+        onCambio={(v) => {
+          setVelocidad(Number(v));
+          if (hablando) parar();
         }}
-        className="min-h-11 rounded-pliegue border border-linea bg-papel-alto px-2 text-[0.85rem]"
-      >
-        {[0.8, 1, 1.2, 1.5, 1.8].map((v) => (
-          <option key={v} value={v}>
-            {v}×
-          </option>
-        ))}
-      </select>
+        opciones={[0.8, 1, 1.2, 1.5, 1.8].map((v) => ({ valor: String(v), texto: `${String(v).replace(".", ",")}×` }))}
+      />
 
       {voces.length > 1 ? (
         <>
-          <label htmlFor={`voz-${titulo}`} className="sr-only">
-            Voz
-          </label>
-          <select
-            id={`voz-${titulo}`}
-            value={vozElegida}
-            onChange={(e) => {
-              setVozElegida(e.target.value);
+          <Selector
+            etiqueta="Voz"
+            etiquetaOculta
+            className="w-52"
+            valor={vozElegida}
+            onCambio={(v) => {
+              setVozElegida(v);
               if (hablando) parar();
             }}
-            className="min-h-11 max-w-[12rem] rounded-pliegue border border-linea bg-papel-alto px-2 text-[0.85rem]"
-          >
-            {voces.map((voz) => (
-              <option key={voz.name} value={voz.name}>
-                {voz.name}
-              </option>
-            ))}
-          </select>
+            opciones={voces.map((voz) => ({ valor: voz.name, texto: voz.name }))}
+          />
         </>
       ) : null}
 

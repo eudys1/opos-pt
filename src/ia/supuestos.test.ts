@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { normalizarPesos, notaPonderada, type SupuestoGenerado } from "./supuestos";
+import { conConsigna, normalizarPesos, notaPonderada, type SupuestoGenerado } from "./supuestos";
+import { CONSIGNA_ANDALUCIA } from "../contenido/supuestos";
 
 function supuesto(pesos: number[]): SupuestoGenerado {
   return {
     titulo: "Caso de prueba",
     enunciado: "Enunciado",
-    cuestiones: ["Una cuestión"],
     necesidad: "TEA",
     curso: "3.º de Primaria",
     temas: [23],
@@ -33,6 +33,19 @@ describe("normalizarPesos", () => {
 
   it("no se rompe con una rúbrica vacía", () => {
     expect(normalizarPesos(supuesto([])).rubrica).toEqual([]);
+  });
+});
+
+describe("conConsigna", () => {
+  it("pone la consigna oficial al final, una sola vez", () => {
+    const texto = conConsigna("Trabaja usted en un CEIP de dos líneas.");
+    expect(texto.startsWith("Trabaja usted en un CEIP de dos líneas.\n\n")).toBe(true);
+    expect(texto.endsWith(CONSIGNA_ANDALUCIA)).toBe(true);
+  });
+
+  it("si la IA ya la escribió (aunque sea distinta), la cambia por la buena", () => {
+    const texto = conConsigna("Caso.\n\nCON TODO LO EXPRESADO PLANTEE UNA INTERVENCION razonada como sea.");
+    expect(texto).toBe(`Caso.\n\n${CONSIGNA_ANDALUCIA}`);
   });
 });
 

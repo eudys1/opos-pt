@@ -12,6 +12,7 @@ import { useSesion } from "@/datos/sesion";
 import { useRecordado } from "@/datos/cache";
 import { fechaCorta } from "@/nucleo/fechas";
 import { hechosEnLaRonda, probabilidadDeDominado } from "@/nucleo/sorteo";
+import { Casilla } from "@/components/ui/campos";
 
 type Modalidad = "tema" | "supuesto" | "completo";
 type Reloj = "real" | "flexible";
@@ -314,22 +315,13 @@ export default function PaginaSimulacros() {
         <summary className="cursor-pointer text-[0.95rem] font-semibold text-tinta">
           Opciones del sorteo
         </summary>
-        <label htmlFor="trampa" className="mt-3 flex cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            id="trampa"
-            checked={trampa}
-            onChange={(e) => setTrampa(e.target.checked)}
-            className="mt-1 h-4 w-4 accent-[color:var(--color-margen)]"
-          />
-          <span>
-            <span className="text-[0.97rem] font-semibold text-tinta">Simulacro trampa</span>
-            <span className="block text-[0.9rem] leading-relaxed text-texto">
-              El sorteo se carga a favor de tus temas más flojos. Sirve para practicar lo que menos
-              te sabes; los sorteos normales siguen siendo al azar de verdad.
-            </span>
+        <Casilla marcada={trampa} onCambio={setTrampa} className="mt-3 items-start">
+          <span className="text-[0.97rem] font-semibold text-tinta">Simulacro trampa</span>
+          <span className="block text-[0.9rem] leading-relaxed text-texto">
+            El sorteo se carga a favor de tus temas más flojos. Sirve para practicar lo que menos
+            te sabes; los sorteos normales siguen siendo al azar de verdad.
           </span>
-        </label>
+        </Casilla>
       </details>
 
       {pedidos && ronda.temasTotal > 0 ? (

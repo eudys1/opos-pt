@@ -12,6 +12,7 @@ import { useSesion } from "@/datos/sesion";
 import { useRecordado } from "@/datos/cache";
 import { moverEnLaCola } from "@/datos/cola-fallos";
 import { tituloCorto } from "@/contenido/temario-pt";
+import { CampoNumero } from "@/components/ui/campos";
 
 type Tipo = "test" | "corta" | "flashcard" | "ley";
 
@@ -414,20 +415,14 @@ function Practicar() {
           </div>
         </fieldset>
 
-        <div>
-          <label htmlFor="cuantas" className="block text-[0.95rem] font-semibold text-tinta">
-            Cuántas preguntas
-          </label>
-          <input
-            id="cuantas"
-            type="number"
-            min={3}
-            max={50}
-            value={cuantas}
-            onChange={(e) => setCuantas(Math.min(50, Math.max(3, Number(e.target.value) || 10)))}
-            className="mt-1.5 w-24 rounded-pliegue border border-linea bg-papel-alto px-3 py-2"
-          />
-        </div>
+        <CampoNumero
+          etiqueta="Cuántas preguntas"
+          ayuda="Entre 3 y 50."
+          valor={cuantas}
+          onCambio={setCuantas}
+          minimo={3}
+          maximo={50}
+        />
 
         <div className="flex flex-wrap items-center gap-3 border-t border-linea-suave pt-4">
           <Boton onClick={() => void empezar()} tamano="grande" disabled={disponibles === 0}>

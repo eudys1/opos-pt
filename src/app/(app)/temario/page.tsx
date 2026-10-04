@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import clsx from "clsx";
 import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
@@ -18,6 +19,7 @@ import {
   tituloCorto,
 } from "@/contenido/temario-pt";
 import type { EstadoContenido } from "@/nucleo/tipos";
+import { AreaTexto, Opciones } from "@/components/ui/campos";
 
 const ETIQUETAS: Record<EstadoContenido, { texto: string; tono: "neutra" | "hecha" | "borrador" }> = {
   sin_contenido: { texto: "Sin contenido", tono: "neutra" },
@@ -26,9 +28,32 @@ const ETIQUETAS: Record<EstadoContenido, { texto: string; tono: "neutra" | "hech
   completo: { texto: "Completo", tono: "hecha" },
 };
 
+// useSearchParams necesita un límite de Suspense para poder prerenderizar.
 export default function PaginaTemario() {
+  return (
+    <Suspense fallback={null}>
+      <Temario />
+    </Suspense>
+  );
+}
+
+function Temario() {
   const { temas, guardarTexto, renombrarTema, cargado } = useCuaderno();
   const [abiertoId, setAbiertoId] = useState<string | null>(null);
+
+  // Desde otra pantalla («sin subir» en el Registro) se llega con ?tema=<número>:
+  // ese tema se abre solo y se trae a la vista, listo para subirlo.
+  const pedido = Number(useSearchParams().get("tema"));
+  const [pedidoAtendido, setPedidoAtendido] = useState(false);
+  if (!pedidoAtendido && cargado) {
+    setPedidoAtendido(true);
+    const tema = temas.find((t) => t.numero === pedido);
+    if (tema) setAbiertoId(tema.id);
+  }
+  useEffect(() => {
+    if (!pedido || !abiertoId) return;
+    document.getElementById(`tema-${pedido}`)?.scrollIntoView({ block: "start" });
+  }, [pedido, abiertoId]);
 
   if (!cargado) return <p className="text-apagado">Abriendo el cuaderno…</p>;
 
@@ -50,7 +75,7 @@ export default function PaginaTemario() {
           const etiqueta = ETIQUETAS[tema.estadoContenido];
           const estaAbierto = abiertoId === tema.id;
           return (
-            <li key={tema.id}>
+            <li key={tema.id} id={`tema-${tema.numero}`} className="scroll-mt-6">
               <Ficha className={clsx("overflow-hidden", estaAbierto && "border-acento-vivo")}>
                 <h2>
                   <button
@@ -173,7 +198,7 @@ function EditorTema({
         </span>
       </div>
 
-      <EditorTitulo id={id} titulo={titulo} onRenombrar={onRenombrar} />
+      <EditorTitulo titulo={titulo} onRenombrar={onRenombrar} />
 
       <SubidaApuntes
         temaId={temaId}
@@ -184,46 +209,29 @@ function EditorTema({
         }}
       />
 
-      <label htmlFor={`${id}-texto`} className="block text-[0.9rem] font-semibold text-tinta">
-        Tu tema
-      </label>
-      <p id={`${id}-ayuda`} className="mb-2 text-[0.85rem] text-apagado">
-        Pega aquí tus apuntes o retoca algo rápido. Para leerlo o editarlo entero y cómodo, ábrelo en
-        otra pestaña (botón de arriba).
-      </p>
-      <textarea
-        id={`${id}-texto`}
-        aria-describedby={`${id}-ayuda`}
-        value={borrador}
-        onChange={(e) => {
-          setBorrador(e.target.value);
+      <AreaTexto
+        etiqueta="Tu tema"
+        ayuda="Pega aquí tus apuntes o retoca algo rápido. Para leerlo o editarlo entero y cómodo, ábrelo en otra pestaña (botón de arriba)."
+        valor={borrador}
+        onCambio={(v) => {
+          setBorrador(v);
           setGuardado(false);
         }}
-        rows={8}
-        className="w-full resize-y rounded-pliegue border-2 border-linea bg-papel-alto px-4 py-3 text-[0.95rem] leading-relaxed text-tinta"
+        filas={8}
       />
 
-      <fieldset className="mt-4">
-        <legend className="text-[0.9rem] font-semibold text-tinta">Estado del contenido</legend>
-        <div className="mt-2 flex flex-wrap gap-4">
-          <Opcion
-            id={`${id}-parcial`}
-            name={`${id}-estado`}
-            checked={nuevoEstado === "parcial"}
-            onChange={() => setNuevoEstado("parcial")}
-            texto="Parcial"
-            ayuda="He subido una parte"
-          />
-          <Opcion
-            id={`${id}-completo`}
-            name={`${id}-estado`}
-            checked={nuevoEstado === "completo"}
-            onChange={() => setNuevoEstado("completo")}
-            texto="Completo"
-            ayuda="El tema entero"
-          />
-        </div>
-      </fieldset>
+      <div className="mt-4">
+        <Opciones
+          etiqueta="Estado del contenido"
+          enFila
+          valor={nuevoEstado}
+          onCambio={(v) => setNuevoEstado(v as "parcial" | "completo")}
+          opciones={[
+            { valor: "parcial", texto: "Parcial", detalle: "He subido una parte" },
+            { valor: "completo", texto: "Completo", detalle: "El tema entero" },
+          ]}
+        />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Boton
@@ -279,7 +287,7 @@ function EditorTema({
             <AudiosTema temaId={temaId} numero={numero} />
             <div className="border-t border-linea-suave pt-4">
               <p className="mb-2 text-[0.9rem] font-semibold text-tinta">Voz del dispositivo</p>
-              <ReproductorTema texto={borrador} titulo={String(numero)} />
+              <ReproductorTema texto={borrador} />
             </div>
           </div>
         </details>
@@ -292,11 +300,9 @@ function EditorTema({
 
 /** El enunciado se puede corregir: la transcripción del BOE no siempre es literal. */
 function EditorTitulo({
-  id,
   titulo,
   onRenombrar,
 }: {
-  id: string;
   titulo: string;
   onRenombrar: (titulo: string) => void;
 }) {
@@ -316,19 +322,18 @@ function EditorTitulo({
         Corregir el enunciado
       </summary>
       <div className="mt-2">
-        <label htmlFor={`${id}-titulo`} className="block text-[0.85rem] text-apagado">
-          Si tu temario lo dice de otra forma, manda el tuyo.
-        </label>
-        <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
-          <textarea
-            id={`${id}-titulo`}
-            value={valor}
-            rows={2}
-            onChange={(e) => {
-              setValor(e.target.value);
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+          <AreaTexto
+            etiqueta="Enunciado de tu temario"
+            ayuda="Si tu temario lo dice de otra forma, manda el tuyo."
+            valor={valor}
+            filas={2}
+            onCambio={(v) => {
+              setValor(v);
               setHecho(false);
             }}
-            className="flex-1 rounded-pliegue border border-linea bg-papel-alto px-3 py-2 text-[0.9rem] leading-relaxed"
+            className="flex-1"
+            claseCaja="text-[0.9rem]"
           />
           <div className="flex gap-2 sm:flex-col">
             <Boton
@@ -360,37 +365,5 @@ function EditorTitulo({
         </span>
       </div>
     </details>
-  );
-}
-
-function Opcion({
-  id,
-  name,
-  checked,
-  onChange,
-  texto,
-  ayuda,
-}: {
-  id: string;
-  name: string;
-  checked: boolean;
-  onChange: () => void;
-  texto: string;
-  ayuda: string;
-}) {
-  return (
-    <label htmlFor={id} className="flex min-h-11 cursor-pointer items-center gap-2.5">
-      <input
-        type="radio"
-        id={id}
-        name={name}
-        checked={checked}
-        onChange={onChange}
-        className="h-4 w-4 accent-[color:var(--color-tinta)]"
-      />
-      <span className="text-[0.95rem] text-tinta">
-        {texto} <span className="text-apagado">· {ayuda}</span>
-      </span>
-    </label>
   );
 }

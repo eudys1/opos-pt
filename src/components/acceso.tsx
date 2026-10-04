@@ -119,7 +119,7 @@ export function Campo({
 export function claseEntrada(conError: boolean) {
   return clsx(
     "w-full rounded-pliegue border-2 bg-papel-alto px-4 py-3 text-[0.98rem]",
-    conError ? "border-margen" : "border-linea focus:border-borde",
+    conError ? "border-margen" : "border-campo hover:border-campo-foco focus:border-campo-foco",
   );
 }
 

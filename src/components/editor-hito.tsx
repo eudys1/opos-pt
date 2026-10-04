@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Boton } from "@/components/ui/boton";
 import { Dialogo } from "@/components/ui/dialogo";
+import { CampoFecha } from "@/components/ui/campos";
 import { useCuaderno } from "@/datos/almacen";
 import {
   desmarcarHito,
@@ -121,21 +122,16 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
             else onCerrar();
           }}
         >
-          <label htmlFor="fecha-hito" className="text-[0.9rem] font-semibold text-tinta">
-            Cambiar el día
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <input
-              id="fecha-hito"
-              type="date"
-              value={fecha}
-              min={min}
-              max={max}
-              onChange={(e) => {
-                setFecha(e.target.value);
+          <div className="flex flex-wrap items-end gap-2">
+            <CampoFecha
+              etiqueta="Cambiar el día"
+              valor={fecha}
+              minimo={min}
+              maximo={max}
+              onCambio={(f) => {
+                setFecha(f);
                 setError("");
               }}
-              className="rounded-pliegue border border-linea bg-papel-alto px-3 py-2.5"
             />
             <Boton type="submit">
               Guardar el día
@@ -245,21 +241,16 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
           else onCerrar();
         }}
       >
-        <label htmlFor="fecha-marcar" className="text-[0.9rem] font-semibold text-tinta">
-          Marcar como hecho el día
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <input
-            id="fecha-marcar"
-            type="date"
-            value={fecha}
-            min={min}
-            max={hoy}
-            onChange={(e) => {
-              setFecha(e.target.value);
+        <div className="flex flex-wrap items-end gap-2">
+          <CampoFecha
+            etiqueta="Marcar como hecho el día"
+            valor={fecha}
+            minimo={min}
+            maximo={hoy}
+            onCambio={(f) => {
+              setFecha(f);
               setError("");
             }}
-            className="rounded-pliegue border border-linea bg-papel-alto px-3 py-2.5"
           />
           <Boton type="submit">
             Marcar hecho
@@ -278,17 +269,12 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
             onCerrar();
           }}
         >
-          <label htmlFor="fecha-mover" className="text-[0.9rem] font-semibold text-tinta">
-            O moverlo a otro día, sin hacerlo aún
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <input
-              id="fecha-mover"
-              type="date"
-              value={fechaMover}
-              min={hoy}
-              onChange={(e) => setFechaMover(e.target.value)}
-              className="rounded-pliegue border border-linea bg-papel-alto px-3 py-2.5"
+          <div className="flex flex-wrap items-end gap-2">
+            <CampoFecha
+              etiqueta="O moverlo a otro día, sin hacerlo aún"
+              valor={fechaMover}
+              minimo={hoy}
+              onCambio={setFechaMover}
             />
             <Boton type="submit" tono="secundario">
               Mover

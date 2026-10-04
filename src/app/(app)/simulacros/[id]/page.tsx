@@ -15,6 +15,7 @@ import { useSesion } from "@/datos/sesion";
 import { olvidar } from "@/datos/cache";
 import { CRITERIOS_TEMA } from "@/ia/corregir-tema";
 import type { CorreccionSupuesto } from "@/ia/supuestos";
+import { AreaTexto, Opciones } from "@/components/ui/campos";
 
 /**
  * La sala de examen.
@@ -74,7 +75,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
   const [modoEntrega, setModoEntrega] = useState<Record<string, "pantalla" | "papel">>({});
   const [fotos, setFotos] = useState<Record<string, string[]>>({});
   const [error, setError] = useState("");
-  const [supuestosEnunciados, setEnunciados] = useState<Record<string, { enunciado: string; cuestiones: string[]; rubrica: { criterio: string; peso: number }[] }>>({});
+  const [supuestosEnunciados, setEnunciados] = useState<Record<string, { enunciado: string; rubrica: { criterio: string; peso: number }[] }>>({});
 
   const claveBorrador = `cuaderno:simulacro:${id}`;
   const guardado = useRef<number>(0);
@@ -99,7 +100,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
       if (idsSupuestos.length > 0) {
         const { data: sups } = await cliente
           .from("supuestos")
-          .select("id, enunciado, cuestiones, rubrica")
+          .select("id, enunciado, rubrica")
           .in("id", idsSupuestos);
         if (!vivo) return;
         setEnunciados(
@@ -108,7 +109,6 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
               s.id,
               {
                 enunciado: s.enunciado,
-                cuestiones: (s.cuestiones ?? []) as string[],
                 rubrica: (s.rubrica ?? []) as { criterio: string; peso: number }[],
               },
             ]),
@@ -513,37 +513,20 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
                   <p className="whitespace-pre-line text-[0.95rem] leading-relaxed text-tinta">
                     {supuesto.enunciado}
                   </p>
-                  <ol className="flex flex-col gap-1.5 border-t border-linea-suave pt-3">
-                    {supuesto.cuestiones.map((cuestion, i) => (
-                      <li key={cuestion} className="flex gap-2 text-[0.93rem] text-texto">
-                        <span className="font-semibold text-margen">{i + 1}.</span>
-                        {cuestion}
-                      </li>
-                    ))}
-                  </ol>
                 </Ficha>
               ) : null}
 
-              <fieldset className="flex flex-wrap items-center gap-4">
-                <legend className="sr-only">Cómo entregas esta parte</legend>
-                {(["pantalla", "papel"] as const).map((valor) => (
-                  <label
-                    key={valor}
-                    htmlFor={`modo-${parte.id}-${valor}`}
-                    className="flex min-h-11 cursor-pointer items-center gap-2 text-[0.92rem]"
-                  >
-                    <input
-                      type="radio"
-                      id={`modo-${parte.id}-${valor}`}
-                      name={`modo-${parte.id}`}
-                      checked={(modoEntrega[parte.id] ?? "pantalla") === valor}
-                      onChange={() => setModoEntrega((m) => ({ ...m, [parte.id]: valor }))}
-                      className="h-4 w-4 accent-[color:var(--color-tinta)]"
-                    />
-                    {valor === "pantalla" ? "Lo escribo aquí" : "Lo escribo en papel y subo fotos"}
-                  </label>
-                ))}
-              </fieldset>
+              <Opciones
+                etiqueta="Cómo entregas esta parte"
+                etiquetaOculta
+                enFila
+                valor={modoEntrega[parte.id] ?? "pantalla"}
+                onCambio={(v) => setModoEntrega((m) => ({ ...m, [parte.id]: v as "pantalla" | "papel" }))}
+                opciones={[
+                  { valor: "pantalla", texto: "Lo escribo aquí" },
+                  { valor: "papel", texto: "Lo escribo en papel y subo fotos" },
+                ]}
+              />
 
               {(modoEntrega[parte.id] ?? "pantalla") === "papel" ? (
                 <EntregaEnPapel
@@ -554,16 +537,14 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
                 />
               ) : (
                 <>
-                  <label htmlFor={`texto-${parte.id}`} className="sr-only">
-                    Desarrollo de {parte.elegido_titulo}
-                  </label>
-                  <textarea
-                    id={`texto-${parte.id}`}
-                    value={texto}
-                    onChange={(e) => escribir(parte.id, e.target.value)}
-                    rows={20}
-                    spellCheck={false}
-                    className="w-full rounded-pliegue border border-linea bg-papel-alto px-5 py-4 text-[1rem] leading-[1.8] text-tinta"
+                  <AreaTexto
+                    etiqueta={`Desarrollo de ${parte.elegido_titulo}`}
+                    etiquetaOculta
+                    valor={texto}
+                    onCambio={(v) => escribir(parte.id, v)}
+                    filas={20}
+                    corrector={false}
+                    claseCaja="px-5 py-4 text-[1rem] leading-[1.8]"
                   />
                   <p className="text-[0.85rem] text-apagado" data-numerico>
                     {texto.trim() ? texto.trim().split(/\s+/).length : 0} palabras · se guarda solo

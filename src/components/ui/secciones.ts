@@ -47,6 +47,8 @@ export const CLASES_DE_SECCIONES = `
   text-sec-simulacro border-sec-simulacro bg-sec-simulacro-fondo bg-sec-simulacro-vivo border-sec-simulacro-vivo
   text-sec-progreso border-sec-progreso bg-sec-progreso-fondo bg-sec-progreso-vivo border-sec-progreso-vivo
   text-sec-normativa border-sec-normativa bg-sec-normativa-fondo bg-sec-normativa-vivo border-sec-normativa-vivo
+  text-sec-apoyo border-sec-apoyo bg-sec-apoyo-fondo bg-sec-apoyo-vivo border-sec-apoyo-vivo
+  text-sec-ud border-sec-ud bg-sec-ud-fondo bg-sec-ud-vivo border-sec-ud-vivo
 `;
 
 /** Las secciones de la app, en el orden del menú, con su color. */
@@ -83,6 +85,9 @@ export const SECCIONES: Record<TipoActividad, EstiloSeccion> = {
   practica: { ...SECCIONES_APP.practicar, nombre: "Práctica" },
   supuesto: { ...SECCIONES_APP.supuestos, nombre: "Supuesto" },
   simulacro: { ...SECCIONES_APP.simulacros, nombre: "Simulacro" },
+  // Sin sección propia: tienen su color solo en el planificador.
+  apoyo: estilo("Plan de apoyo", "apoyo"),
+  ud: estilo("UD (unidad didáctica)", "ud"),
   otro: { ...SECCIONES_APP.planificador, nombre: "Otro" },
 };
 
@@ -92,5 +97,7 @@ export const TIPOS_ACTIVIDAD: TipoActividad[] = [
   "practica",
   "supuesto",
   "simulacro",
+  "apoyo",
+  "ud",
   "otro",
 ];

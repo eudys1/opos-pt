@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Button, Menu, MenuItem, MenuTrigger, Popover } from "react-aria-components";
 import { Boton } from "@/components/ui/boton";
+import { descargarPdf, descargarTexto, descargarWord } from "@/components/descargar-normativa";
 import { Ficha } from "@/components/ui/ficha";
 import { TextoLargo } from "@/components/ui/texto-largo";
 import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
 import { bancoDeNormativa, documentoDeNormativa, normasQueFaltan, seccionesDelDocumento } from "@/nucleo/normas";
+import { CampoTexto } from "@/components/ui/campos";
 
 /**
  * Banco de normativa: todas las normas de tus temas en un solo documento,
@@ -84,15 +87,6 @@ export function BancoNormativa() {
     setEditando(false);
   }
 
-  function descargar(contenido: string) {
-    const url = URL.createObjectURL(new Blob([contenido], { type: "text/plain;charset=utf-8" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "banco-de-normativa.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   if (!pedido) return <p className="text-apagado">Abriendo tu banco de normativa…</p>;
   if (errorCarga) {
     return (
@@ -122,9 +116,7 @@ export function BancoNormativa() {
         </div>
         {!editando && entradas.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            <Boton tono="secundario" onClick={() => descargar(texto)}>
-              Descargar
-            </Boton>
+            <MenuDescarga texto={texto} onError={setError} />
             <Boton
               onClick={() => {
                 setBorrador(texto);
@@ -236,19 +228,14 @@ function DocumentoPlegado({ texto }: { texto: string }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-[14rem] flex-1 flex-col gap-1">
-          <label htmlFor="buscar-norma" className="text-[0.85rem] font-bold text-tinta">
-            Buscar en tu banco
-          </label>
-          <input
-            id="buscar-norma"
-            type="search"
-            value={buscar}
-            onChange={(e) => setBuscar(e.target.value)}
-            placeholder="Una ley, un número (17/2007) o «tema 3»"
-            className="min-h-11 rounded-full border-2 border-linea bg-papel-alto px-4 text-[0.92rem]"
-          />
-        </div>
+        <CampoTexto
+          etiqueta="Buscar en tu banco"
+          tipo="search"
+          valor={buscar}
+          onCambio={setBuscar}
+          placeholder="Una ley, un número (17/2007) o «tema 3»"
+          className="min-w-[14rem] flex-1"
+        />
         {!aguja && conTitulo.length > 1 ? (
           <Boton
             tono="secundario"
@@ -305,5 +292,49 @@ function DocumentoPlegado({ texto }: { texto: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Descargar en Word, PDF o texto, desde un menú. */
+function MenuDescarga({ texto, onError }: { texto: string; onError: (m: string) => void }) {
+  async function elegir(formato: string) {
+    onError("");
+    try {
+      if (formato === "word") await descargarWord(texto);
+      else if (formato === "texto") descargarTexto(texto);
+      else if (!descargarPdf(texto)) {
+        onError("El navegador ha bloqueado la ventana para imprimir. Permite las ventanas emergentes de esta web y vuelve a probar.");
+      }
+    } catch (e) {
+      onError(e instanceof Error ? `No se ha podido preparar la descarga: ${e.message}` : "No se ha podido preparar la descarga.");
+    }
+  }
+  const opcion =
+    "flex cursor-pointer flex-col rounded-[9px] px-3 py-2 text-[0.93rem] outline-none data-[focused]:bg-papel-franja";
+  return (
+    <MenuTrigger>
+      <Button className="inline-flex min-h-11 items-center gap-2 rounded-full border-2 border-borde bg-papel-alto px-5 text-[0.95rem] font-extrabold text-tinta shadow-[0_3px_0_var(--color-borde)] outline-none hover:bg-papel-franja data-[pressed]:translate-y-[2px] data-[pressed]:shadow-[0_1px_0_var(--color-borde)] data-[focus-visible]:ring-2 data-[focus-visible]:ring-acento">
+        Descargar
+        <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m5 7.5 5 5 5-5" />
+        </svg>
+      </Button>
+      <Popover className="desplegable min-w-[15rem] rounded-pliegue border-2 border-borde bg-papel-alto p-1 shadow-ficha">
+        <Menu onAction={(clave) => void elegir(String(clave))} className="outline-none">
+          <MenuItem id="word" textValue="Word" className={opcion}>
+            <span className="font-extrabold">Word (.docx)</span>
+            <span className="text-[0.8rem] text-apagado">Para seguir editándolo</span>
+          </MenuItem>
+          <MenuItem id="pdf" textValue="PDF" className={opcion}>
+            <span className="font-extrabold">PDF</span>
+            <span className="text-[0.8rem] text-apagado">Se abre imprimir: elige «Guardar como PDF»</span>
+          </MenuItem>
+          <MenuItem id="texto" textValue="Texto" className={opcion}>
+            <span className="font-extrabold">Texto (.txt)</span>
+            <span className="text-[0.8rem] text-apagado">Sin formato</span>
+          </MenuItem>
+        </Menu>
+      </Popover>
+    </MenuTrigger>
   );
 }

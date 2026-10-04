@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import clsx from "clsx";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Boton } from "@/components/ui/boton";
 import { Ficha } from "@/components/ui/ficha";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { CorreccionDetallada } from "@/components/correccion-detallada";
 import { LeerArchivo } from "@/components/leer-archivo";
+import { AreaTexto, CampoTexto, Casilla } from "@/components/ui/campos";
 import { useSesion } from "@/datos/sesion";
 import { useRecordado } from "@/datos/cache";
 import { RUBRICA_POR_DEFECTO } from "@/contenido/supuestos";
@@ -18,7 +19,6 @@ type Supuesto = {
   usuario_id: string;
   titulo: string;
   enunciado: string;
-  cuestiones: string[];
   necesidad: string | null;
   curso: string | null;
   rubrica: { criterio: string; peso: number; queSeEspera: string }[];
@@ -35,7 +35,16 @@ type Vista =
   | { tipo: "editar"; supuesto: Supuesto }
   | { tipo: "practicar"; supuesto: Supuesto };
 
+// useSearchParams necesita un límite de Suspense para poder prerenderizar.
 export default function PaginaSupuestos() {
+  return (
+    <Suspense fallback={null}>
+      <Supuestos />
+    </Suspense>
+  );
+}
+
+function Supuestos() {
   const { usuario, cliente } = useSesion();
   const [vista, setVista] = useState<Vista>({ tipo: "lista" });
   const [error, setError] = useState("");
@@ -86,6 +95,16 @@ export default function PaginaSupuestos() {
     recargar();
   }
 
+  const desdeEnlace = useSearchParams();
+  const [enlaceAtendido, setEnlaceAtendido] = useState(false);
+  if (!enlaceAtendido && supuestos.length > 0) {
+    setEnlaceAtendido(true);
+    const practicar = supuestos.find((x) => x.id === desdeEnlace.get("practicar"));
+    const editar = supuestos.find((x) => x.id === desdeEnlace.get("editar"));
+    if (practicar) setVista({ tipo: "practicar", supuesto: practicar });
+    else if (editar && editar.usuario_id === usuario?.id) setVista({ tipo: "editar", supuesto: editar });
+  }
+
   if (!usuario) return null;
 
   const volver = () => {
@@ -123,7 +142,7 @@ export default function PaginaSupuestos() {
 
       {generando ? (
         <BarraProgreso
-          pasos={["escribiendo el caso, sus cuestiones y la rúbrica"]}
+          pasos={["escribiendo el caso y su rúbrica"]}
           actual={0}
           aviso="Suele tardar entre uno y dos minutos. Sale de tus temas subidos."
         />
@@ -187,7 +206,14 @@ export default function PaginaSupuestos() {
                   <div className="flex flex-wrap items-center gap-2 text-[0.83rem] text-apagado">
                     {supuesto.necesidad ? <span>{supuesto.necesidad}</span> : null}
                     {supuesto.curso ? <span>· {supuesto.curso}</span> : null}
-                    <span>· {supuesto.cuestiones.length} cuestiones</span>
+                    <a
+                      href={`/supuesto/${supuesto.id}`}
+                      target="_blank"
+                      rel="noopener"
+                      className="regla inline-flex min-h-11 items-center font-bold text-sec-supuesto"
+                    >
+                      Abrir en otra pestaña ↗
+                    </a>
                     <span className="ml-auto flex flex-wrap gap-1">
                       {esMio ? (
                         <>
@@ -267,36 +293,18 @@ function PracticaSupuesto({ supuesto, onVolver }: { supuesto: Supuesto; onVolver
         <p className="whitespace-pre-line text-[1rem] leading-relaxed text-tinta">
           {supuesto.enunciado}
         </p>
-        <ol className="flex flex-col gap-2 border-t border-linea-suave pt-4">
-          {supuesto.cuestiones.map((cuestion, i) => (
-            <li key={cuestion} className="flex gap-3 text-[0.97rem] leading-relaxed text-texto">
-              <span className="font-semibold text-margen">{i + 1}.</span>
-              {cuestion}
-            </li>
-          ))}
-        </ol>
       </Ficha>
 
       {!correccion ? (
         <>
-          <div>
-            <label htmlFor="respuesta" className="block text-[0.95rem] font-semibold text-tinta">
-              Tu respuesta
-            </label>
-            <p id="ayuda-respuesta" className="mb-2 text-[0.85rem] text-apagado">
-              Sin reloj: esto es para practicar el contenido. El tiempo se pone en los simulacros.
-              {supuesto.solucion ? ` Se corrige frente a ${nombreSolucion}.` : ""}
-            </p>
-            <textarea
-              id="respuesta"
-              aria-describedby="ayuda-respuesta"
-              value={texto}
-              disabled={corrigiendo}
-              onChange={(e) => setTexto(e.target.value)}
-              rows={16}
-              className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 text-[0.97rem] leading-relaxed"
-            />
-          </div>
+          <AreaTexto
+            etiqueta="Tu respuesta"
+            ayuda={`Sin reloj: esto es para practicar el contenido. El tiempo se pone en los simulacros.${supuesto.solucion ? ` Se corrige frente a ${nombreSolucion}.` : ""}`}
+            valor={texto}
+            onCambio={setTexto}
+            deshabilitada={corrigiendo}
+            filas={16}
+          />
 
           {corrigiendo ? (
             <BarraProgreso
@@ -381,7 +389,6 @@ function FormularioSupuesto({
   const { usuario, cliente } = useSesion();
   const [titulo, setTitulo] = useState(inicial?.titulo ?? "");
   const [enunciado, setEnunciado] = useState(inicial?.enunciado ?? "");
-  const [cuestiones, setCuestiones] = useState((inicial?.cuestiones ?? []).join("\n"));
   const [solucion, setSolucion] = useState(inicial?.solucion ?? "");
   const [deAcademia, setDeAcademia] = useState(inicial ? Boolean(inicial.solucion_de_academia) : true);
   const [necesidad, setNecesidad] = useState(inicial?.necesidad ?? "");
@@ -409,10 +416,9 @@ function FormularioSupuesto({
     const datos = {
       titulo: titulo.trim() || "Supuesto sin título",
       enunciado: enunciado.trim(),
-      cuestiones: cuestiones
-        .split("\n")
-        .map((c) => c.trim())
-        .filter(Boolean),
+      // El examen no trae cuestiones sueltas: al guardar se vacían también las
+      // que tuviera un supuesto antiguo, para que la corrección no las use.
+      cuestiones: [] as string[],
       solucion: solucion.trim() || null,
       solucion_de_academia: Boolean(solucion.trim()) && deAcademia,
       necesidad: necesidad.trim() || null,
@@ -454,114 +460,62 @@ function FormularioSupuesto({
         </p>
       ) : null}
 
-      <Campo id="titulo" etiqueta="Título" ayuda="Para reconocerlo en la lista.">
-        <input
-          id="titulo"
-          value={titulo}
-          onChange={(e) => setTitulo(e.target.value)}
-          className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-2.5"
-        />
-      </Campo>
+      <CampoTexto etiqueta="Título" ayuda="Para reconocerlo en la lista." valor={titulo} onCambio={setTitulo} />
 
-      <Campo id="enunciado" etiqueta="Enunciado" ayuda="El caso completo, tal y como viene.">
-        <textarea
-          id="enunciado"
-          value={enunciado}
-          onChange={(e) => setEnunciado(e.target.value)}
-          rows={8}
-          className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 leading-relaxed"
+      <div className="flex flex-col gap-2">
+        <AreaTexto
+          etiqueta="Enunciado"
+          ayuda="El caso completo, tal y como viene, con la consigna del final."
+          valor={enunciado}
+          onCambio={setEnunciado}
+          filas={10}
         />
         <LeerArchivo
           carpeta="supuestos"
           onTexto={(t) => setEnunciado((previo) => (previo.trim() ? `${previo}\n\n${t}` : t))}
           texto="Leer el enunciado de una foto o un PDF"
         />
-      </Campo>
+      </div>
 
-      <Campo id="cuestiones" etiqueta="Cuestiones" ayuda="Una por línea.">
-        <textarea
-          id="cuestiones"
-          value={cuestiones}
-          onChange={(e) => setCuestiones(e.target.value)}
-          rows={5}
-          className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 leading-relaxed"
-        />
-      </Campo>
-
-      <Campo
-        id="solucion"
-        etiqueta="Resolución"
-        ayuda="La que te ha dado la academia, tal cual. Opcional, pero es lo que hace que la corrección se parezca a la del tribunal."
-      >
-        <textarea
-          id="solucion"
-          value={solucion}
-          onChange={(e) => setSolucion(e.target.value)}
-          rows={8}
-          className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 leading-relaxed"
+      <div className="flex flex-col gap-2">
+        <AreaTexto
+          etiqueta="Resolución"
+          ayuda="La que te ha dado la academia, tal cual. Opcional, pero es lo que hace que la corrección se parezca a la del tribunal."
+          valor={solucion}
+          onCambio={setSolucion}
+          filas={8}
         />
         <LeerArchivo
           carpeta="supuestos"
           onTexto={(t) => setSolucion((previo) => (previo.trim() ? `${previo}\n\n${t}` : t))}
           texto="Leer la resolución de una foto o un PDF"
         />
-        <label htmlFor="de-academia" className="mt-1 flex min-h-11 cursor-pointer items-center gap-2.5">
-          <input
-            type="checkbox"
-            id="de-academia"
-            checked={deAcademia}
-            onChange={(e) => setDeAcademia(e.target.checked)}
-            className="h-4 w-4 accent-[color:var(--color-tinta)]"
-          />
-          <span className="text-[0.93rem]">
-            Es la resolución de la academia{" "}
-            <span className="text-apagado">· se corregirá comprobando si recoges sus puntos clave</span>
-          </span>
-        </label>
-      </Campo>
+        <Casilla marcada={deAcademia} onCambio={setDeAcademia}>
+          Es la resolución de la academia{" "}
+          <span className="text-apagado">· se corregirá comprobando si recoges sus puntos clave</span>
+        </Casilla>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Campo
-          id="necesidad"
+        <CampoTexto
           etiqueta="Necesidad principal"
           ayuda="TEA, TDAH, discapacidad intelectual… Opcional. No se enseña en los sorteos."
-        >
-          <input
-            id="necesidad"
-            value={necesidad}
-            onChange={(e) => setNecesidad(e.target.value)}
-            className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-2.5"
-          />
-        </Campo>
-        <Campo id="curso" etiqueta="Curso" ayuda="Por ejemplo, 3.º de Primaria. Opcional.">
-          <input
-            id="curso"
-            value={curso}
-            onChange={(e) => setCurso(e.target.value)}
-            className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-2.5"
-          />
-        </Campo>
+          valor={necesidad}
+          onCambio={setNecesidad}
+        />
+        <CampoTexto
+          etiqueta="Curso"
+          ayuda="Por ejemplo, 3.º de Primaria. Opcional."
+          valor={curso}
+          onCambio={setCurso}
+        />
       </div>
 
       <div className="flex flex-col gap-1">
-        <label
-          htmlFor="compartir"
-          className={clsx("flex min-h-11 items-center gap-2.5", deLaAcademia ? "text-apagado" : "cursor-pointer")}
-        >
-          <input
-            type="checkbox"
-            id="compartir"
-            checked={compartir && !deLaAcademia}
-            disabled={deLaAcademia}
-            aria-describedby="compartir-ayuda"
-            onChange={(e) => setCompartir(e.target.checked)}
-            className="h-4 w-4 accent-[color:var(--color-tinta)]"
-          />
-          <span className="text-[0.95rem]">
-            Compartirlo con quien prepare la misma especialidad{" "}
-            <span className="text-apagado">· podrán leerlo, no editarlo</span>
-          </span>
-        </label>
+        <Casilla marcada={compartir && !deLaAcademia} onCambio={setCompartir} deshabilitada={deLaAcademia}>
+          Compartirlo con quien prepare la misma especialidad{" "}
+          <span className="text-apagado">· podrán leerlo, no editarlo</span>
+        </Casilla>
         <p id="compartir-ayuda" className="max-w-[62ch] pl-7 text-[0.84rem] leading-relaxed text-apagado">
           {deLaAcademia
             ? "No se puede compartir: lleva la resolución de tu academia, y ese texto es suyo. Para ti sí sirve, en privado. Si quieres compartir el caso, guarda una copia sin esa resolución o con una escrita por ti."
@@ -583,28 +537,6 @@ function FormularioSupuesto({
           Cancelar
         </Boton>
       </div>
-    </div>
-  );
-}
-
-function Campo({
-  id,
-  etiqueta,
-  ayuda,
-  children,
-}: {
-  id: string;
-  etiqueta: string;
-  ayuda: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[0.95rem] font-semibold text-tinta">
-        {etiqueta}
-      </label>
-      <p className="text-[0.85rem] text-apagado">{ayuda}</p>
-      {children}
     </div>
   );
 }

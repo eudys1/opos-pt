@@ -28,7 +28,12 @@
   --color-linea: #efd8c2;
   --color-linea-suave: #f7e8d8;
   --color-borde: #431407;
+  /* Borde de los campos de formulario: 3:1 con el fondo como mínimo (WCAG 1.4.11). */
+  --color-campo: #9c7a62;
+  --color-campo-foco: #431407;
   --color-sombra: #ffd6a5;
+  /* Velo bajo los modales: oscurece lo de detrás sin taparlo. */
+  --color-velo: rgb(67 20 7 / 0.38);
 
   --color-acento: #c2410c;
   --color-acento-vivo: #ff6b35;
@@ -80,6 +85,13 @@
   --color-sec-normativa: #7c4a2d;
   --color-sec-normativa-vivo: #b9805a;
   --color-sec-normativa-fondo: #f5e6d3;
+  /* Tipos del planificador sin sección propia: plan de apoyo y unidad didáctica. */
+  --color-sec-apoyo: #155e75;
+  --color-sec-apoyo-vivo: #0e7490;
+  --color-sec-apoyo-fondo: #cffafe;
+  --color-sec-ud: #334155;
+  --color-sec-ud-vivo: #64748b;
+  --color-sec-ud-fondo: #e2e8f0;
 
   --font-display: var(--fuente-display), ui-rounded, ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--fuente-texto), ui-sans-serif, system-ui, sans-serif;
@@ -121,7 +133,10 @@
   --color-linea: #3b2f27;
   --color-linea-suave: #2d241e;
   --color-borde: #4d3d32;
+  --color-campo: #94806f;
+  --color-campo-foco: #ff7a45;
   --color-sombra: #4a2310;
+  --color-velo: rgb(8 4 2 / 0.62);
   --color-acento: #ffa574;
   --color-acento-vivo: #ff7a45;
   --color-acento-fondo: #3a2114;
@@ -165,6 +180,12 @@
   --color-sec-normativa: #e8c3a7;
   --color-sec-normativa-vivo: #b9805a;
   --color-sec-normativa-fondo: #33261d;
+  --color-sec-apoyo: #67e8f9;
+  --color-sec-apoyo-vivo: #0e7490;
+  --color-sec-apoyo-fondo: #0f2b33;
+  --color-sec-ud: #cbd5e1;
+  --color-sec-ud-vivo: #64748b;
+  --color-sec-ud-fondo: #1e2530;
   color-scheme: dark;
 }
 
@@ -494,6 +515,52 @@
   .pantalla,
   .casilla-llena {
     animation: none !important;
+  }
+}
+
+/* ------------------------------------------------------- ventanas y listas
+  Los modales y los desplegables de React Aria marcan con data-entering y
+  data-exiting cuándo entran y salen: aquí se les da el movimiento. Cola larga
+  al entrar, más rápido al salir, nunca rebote.
+*/
+.modal-fondo[data-entering] {
+  animation: fundido 220ms cubic-bezier(0.22, 0.68, 0.3, 1);
+}
+.modal-fondo[data-exiting] {
+  animation: fundido 160ms cubic-bezier(0.4, 0, 1, 1) reverse;
+}
+.modal-caja[data-entering] {
+  animation: modal-entra 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-caja[data-exiting] {
+  animation: modal-entra 160ms cubic-bezier(0.4, 0, 1, 1) reverse;
+}
+@keyframes modal-entra {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+}
+.desplegable[data-entering] {
+  animation: desplegable-entra 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.desplegable[data-exiting] {
+  animation: desplegable-entra 120ms cubic-bezier(0.4, 0, 1, 1) reverse;
+}
+@keyframes desplegable-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-fondo[data-entering],
+  .modal-fondo[data-exiting],
+  .modal-caja[data-entering],
+  .modal-caja[data-exiting],
+  .desplegable[data-entering],
+  .desplegable[data-exiting] {
+    animation: none;
   }
 }
 

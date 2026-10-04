@@ -47,6 +47,52 @@ export function esReprogramacion(o: Objetivo): boolean {
   return Boolean(o.automatico && o.temaId && o.numeroRepaso);
 }
 
+/**
+ * El día previsto para empezar a estudiar un tema. Es un objetivo más (sale en
+ * el planificador y se marca como cualquiera), creado por el Registro y atado
+ * al tema; a diferencia de una reprogramación, no lleva número de repaso.
+ */
+export function esInicioPrevisto(o: Objetivo): boolean {
+  return Boolean(o.automatico && o.temaId && !o.numeroRepaso);
+}
+
+/** El inicio previsto de un tema, si lo tiene. */
+export function inicioPrevistoDe(objetivos: Objetivo[], temaId: string): Objetivo | undefined {
+  return objetivos.find((o) => esInicioPrevisto(o) && o.temaId === temaId);
+}
+
+/**
+ * Si un tema ya está empezado, desde cuándo y por qué. Cuenta lo primero que
+ * pase de esto:
+ *   - "estudiado": tiene marcado el estudiado (y con él, cualquier repaso, que
+ *     no puede existir sin el estudiado antes);
+ *   - "practica": has practicado con él (test, cortas, supuestos…);
+ *   - "marcado": lo marcaste a mano como empezado desde el Registro.
+ * Si lo marcaste a mano, manda tu día: es una corrección tuya (lo empezaste a
+ * leer antes de marcarlo, por ejemplo). Si no, el día más temprano de lo demás.
+ * null: aún no lo has empezado.
+ */
+export type Empezado = { fecha: FechaISO; motivo: "estudiado" | "practica" | "marcado" };
+
+export function empezadoDesde(
+  temaId: string,
+  eventos: EventoEstudio[],
+  objetivos: Objetivo[],
+): Empezado | null {
+  const inicio = inicioPrevistoDe(objetivos, temaId);
+  if (inicio?.hecho) return { fecha: inicio.fecha, motivo: "marcado" };
+  const candidatos: Empezado[] = [];
+  for (const e of eventos) {
+    if (e.temaId !== temaId) continue;
+    candidatos.push({
+      fecha: e.fecha,
+      motivo: e.tipo === "estudiado" || e.tipo === "repaso" ? "estudiado" : "practica",
+    });
+  }
+  if (!candidatos.length) return null;
+  return candidatos.reduce((a, b) => (b.fecha < a.fecha ? b : a));
+}
+
 /** tema → número de repaso → nueva fecha. */
 export function reprogramadosPorTema(
   objetivos: Objetivo[],
@@ -150,7 +196,24 @@ export function agenda(
   return mapa;
 }
 
-export type ResumenObjetivos = { total: number; hechos: number; porcentaje: number | null };
+/**
+ * Por qué no se puede llevar una entrada de la agenda a otro día al arrastrarla:
+ *   - "historial": un hito o un evento ya hecho es historia; su fecha se cambia
+ *     desde su ventana, donde se comprueba que siga en orden con los demás.
+ *   - "pasado": un repaso pendiente no se puede dejar para un día que ya pasó.
+ *   - "mismo-dia": se ha soltado donde estaba; no hay nada que hacer.
+ * null: se puede mover.
+ */
+export type CodigoMover = "historial" | "pasado" | "mismo-dia";
+
+export function comoMover(entrada: EntradaAgenda, aDia: FechaISO, hoy: FechaISO): CodigoMover | null {
+  if (entrada.origen === "hito" || entrada.origen === "evento") return "historial";
+  if (aDia === entrada.fecha) return "mismo-dia";
+  if (entrada.origen === "previsto" && aDia < hoy) return "pasado";
+  return null;
+}
+
+export type ResumenObjetivos ={ total: number; hechos: number; porcentaje: number | null };
 
 /** Objetivos propuestos entre dos fechas y cuántos se han cumplido. */
 export function resumenObjetivos(

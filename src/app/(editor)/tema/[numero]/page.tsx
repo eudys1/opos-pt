@@ -10,6 +10,7 @@ import { useCuaderno } from "@/datos/almacen";
 import { useSesion } from "@/datos/sesion";
 import { estructuraDelTema, indiceDelTema, type Bloque } from "@/nucleo/estructura";
 import type { EstadoContenido } from "@/nucleo/tipos";
+import { Opciones } from "@/components/ui/campos";
 
 /**
  * Un tema a pantalla completa, en su propia pestaña.
@@ -181,28 +182,16 @@ export default function PaginaTema({ params }: { params: Promise<{ numero: strin
                 spellCheck
                 className="min-h-[60vh] max-w-[80ch] shadow-ficha"
               />
-              <fieldset className="flex flex-wrap items-center gap-4">
-                <legend className="mb-1 w-full text-[0.9rem] font-semibold text-tinta">
-                  ¿Está completo?
-                </legend>
-                {(
-                  [
-                    ["parcial", "Parcial · falta una parte"],
-                    ["completo", "Completo · el tema entero"],
-                  ] as const
-                ).map(([valor, texto]) => (
-                  <label key={valor} className="flex min-h-11 cursor-pointer items-center gap-2 text-[0.93rem]">
-                    <input
-                      type="radio"
-                      name="estado-tema"
-                      checked={estado === valor}
-                      onChange={() => setEstado(valor)}
-                      className="h-4 w-4 accent-[color:var(--color-acento)]"
-                    />
-                    {texto}
-                  </label>
-                ))}
-              </fieldset>
+              <Opciones
+                etiqueta="¿Está completo?"
+                enFila
+                valor={estado === "completo" ? "completo" : "parcial"}
+                onCambio={(v) => setEstado(v as EstadoContenido)}
+                opciones={[
+                  { valor: "parcial", texto: "Parcial · falta una parte" },
+                  { valor: "completo", texto: "Completo · el tema entero" },
+                ]}
+              />
             </div>
           ) : texto.trim() ? (
             <article className="max-w-[72ch]">

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   agenda,
+  comoMover,
+  empezadoDesde,
+  esInicioPrevisto,
+  esReprogramacion,
   estadoDelDia,
+  inicioPrevistoDe,
   rejillaDelMes,
   reprogramadosPorTema,
   resumenObjetivos,
@@ -78,6 +83,26 @@ describe("agenda", () => {
     expect(siguiente?.tocaEn).toBe("2026-09-30");
   });
 
+  it("el inicio previsto de un tema es un objetivo que sale en su día, no un repaso movido", () => {
+    const inicio: Objetivo = {
+      id: "i",
+      fecha: "2026-09-29",
+      texto: "Empezar el tema 7",
+      hecho: false,
+      automatico: true,
+      temaId: "t7",
+      tipo: "temario",
+    };
+    expect(esInicioPrevisto(inicio)).toBe(true);
+    expect(esReprogramacion(inicio)).toBe(false);
+    expect(inicioPrevistoDe([...objetivos, inicio], "t7")?.id).toBe("i");
+    expect(inicioPrevistoDe([...objetivos, inicio], "t4")).toBeUndefined();
+    const dia = agenda("2026-09-29", "2026-09-29", { ...datos, objetivos: [...objetivos, inicio] }).get(
+      "2026-09-29",
+    );
+    expect(dia?.find((e) => e.objetivoId === "i")?.origen).toBe("objetivo");
+  });
+
   it("la reprogramación no cuenta como objetivo", () => {
     const mover: Objetivo = {
       id: "r",
@@ -126,5 +151,72 @@ describe("rejilla del mes", () => {
     expect(dias[0]).toBe("2026-08-31");
     expect(dias.at(-1)).toBe("2026-10-04");
     expect(dias.length % 7).toBe(0);
+  });
+});
+
+describe("comoMover", () => {
+  const base = { clave: "x", tipo: "otro" as const, estado: "pendiente" as const };
+  const HOY_M = "2026-10-04";
+
+  it("un objetivo se mueve a cualquier día, también a uno pasado", () => {
+    const e = { ...base, fecha: "2026-10-05", origen: "objetivo" as const, objetivoId: "o" };
+    expect(comoMover(e, "2026-10-09", HOY_M)).toBeNull();
+    expect(comoMover(e, "2026-10-01", HOY_M)).toBeNull();
+  });
+
+  it("un repaso pendiente no se deja para un día que ya pasó", () => {
+    const e = { ...base, fecha: HOY_M, origen: "previsto" as const, temaId: "t", indice: 2 };
+    expect(comoMover(e, "2026-10-06", HOY_M)).toBeNull();
+    expect(comoMover(e, "2026-10-03", HOY_M)).toBe("pasado");
+  });
+
+  it("lo ya hecho no se arrastra, y soltar en el mismo día no hace nada", () => {
+    const hito = { ...base, estado: "hecho" as const, fecha: "2026-10-01", origen: "hito" as const };
+    expect(comoMover(hito, "2026-10-02", HOY_M)).toBe("historial");
+    const obj = { ...base, fecha: "2026-10-05", origen: "objetivo" as const };
+    expect(comoMover(obj, "2026-10-05", HOY_M)).toBe("mismo-dia");
+  });
+});
+
+describe("empezadoDesde", () => {
+  const inicio = (hecho: boolean, fecha = "2026-10-10"): Objetivo => ({
+    id: "i", fecha, texto: "Empezar el tema 7", hecho, automatico: true, temaId: "t7", tipo: "temario",
+  });
+  const ev = (tipo: EventoEstudio["tipo"], fecha: string, numeroRepaso?: number): EventoEstudio => ({
+    id: `${tipo}-${fecha}`, temaId: "t7", tipo, fecha, numeroRepaso,
+  });
+
+  it("sin nada, no está empezado; con solo un día previsto, tampoco", () => {
+    expect(empezadoDesde("t7", [], [])).toBeNull();
+    expect(empezadoDesde("t7", [], [inicio(false)])).toBeNull();
+  });
+
+  it("estudiado o con repasos cuenta como empezado, con el día real y no el previsto", () => {
+    expect(empezadoDesde("t7", [ev("estudiado", "2026-10-12")], [inicio(true)])).toEqual({
+      fecha: "2026-10-10",
+      motivo: "marcado",
+    });
+    expect(empezadoDesde("t7", [ev("estudiado", "2026-10-12"), ev("repaso", "2026-10-13", 1)], [])).toEqual({
+      fecha: "2026-10-12",
+      motivo: "estudiado",
+    });
+  });
+
+  it("haber practicado con el tema también es haberlo empezado", () => {
+    expect(empezadoDesde("t7", [ev("practica", "2026-10-08")], [inicio(false)])).toEqual({
+      fecha: "2026-10-08",
+      motivo: "practica",
+    });
+  });
+
+  it("el día que pones a mano manda, aunque sea después del estudiado", () => {
+    expect(empezadoDesde("t7", [ev("estudiado", "2026-10-12")], [inicio(true, "2026-10-15")])).toEqual({
+      fecha: "2026-10-15",
+      motivo: "marcado",
+    });
+  });
+
+  it("lo de otros temas no cuenta", () => {
+    expect(empezadoDesde("t4", [ev("estudiado", "2026-10-12")], [inicio(true)])).toBeNull();
   });
 });

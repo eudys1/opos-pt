@@ -39,6 +39,17 @@ entra nada del temario. Antes de cualquier `git add` amplio, mirar `git status`.
 - `src/ia/` — un archivo por tarea con su prompt y su esquema de salida.
 - `src/components/ui/` — piezas del sistema de diseño (botón, ficha, diálogo, barra de progreso,
   secciones y sus colores, texto largo).
+- **Campos de formulario, modales, menús y arrastrar: React Aria Components** (Adobe; elegido el
+  04-10-2026 frente a Radix y Base UI porque trae en un solo paquete fecha con calendario en
+  español, desplegables, modales y arrastrar y soltar accesible con teclado). Todo pasa por
+  `src/components/ui/campos.tsx` (`CampoTexto`, `AreaTexto`, `CampoNumero`, `CampoFecha`,
+  `Selector`, `Casilla`, `Opciones`), `ui/dialogo.tsx` y `components/arrastre.tsx`. **No volver a
+  escribir `<input>`, `<select>` ni `<textarea>` a mano**: solo quedan los de entrar y crear
+  cuenta (con sus propias piezas en `acceso.tsx`) y los selectores de archivo. El borde de los
+  campos usa el token `campo` (3:1 con el fondo en los dos temas, WCAG 1.4.11; `linea` daba 1,3).
+- El panel del navegador integrado, oculto, no pinta: las animaciones de salida de los modales no
+  acaban y los clics reales fallan. Para probar interacciones, eventos simulados desde JS
+  (`.click()`, `DragEvent` con un `DataTransfer`), o Playwright.
 - `scripts/` — comandos que corren en el portátil (temario, voz, migrar); usan la clave secreta de
   Supabase y nunca se llaman desde la web.
 
@@ -151,6 +162,31 @@ planificador editables y unidos, practicar, fallos con variantes y filtros, legi
 supuestos con resolución de academia, simulacros real o flexible por rondas, progreso, banco de
 normativa, Mi examen, Mi cuenta, voz natural y grabaciones propias, modo oscuro y PWA.
 Supuestos también desde carpeta local (`npm run supuestos`, carpeta `supuestos-local/`).
+
+Tanda del 04-10-2026:
+- **Supuestos como los del examen de Andalucía** (visto en los reales de 2019 y 2025 que subió
+  Lucía): contexto del centro, alumno, observaciones y una consigna fija al final
+  (`CONSIGNA_ANDALUCIA`, la pone el código). **Sin cuestiones**: la columna `cuestiones` sigue en
+  la base sin usarse (borrarla es decisión de Eudys) y se vacía al editar un supuesto antiguo.
+  Cada supuesto se abre también en su pestaña (`/supuesto/[id]`). La corrección no se ha tocado:
+  espera a las guías de Lucía.
+- **Registro**: columna «Empezar» (día previsto para empezar cada tema). Es un objetivo
+  automático del tema sin número de repaso (`esInicioPrevisto` en `nucleo/agenda.ts`), así que
+  sale también en el planificador. Si el registro ya prueba que está empezado (estudiado, algún
+  repaso o prácticas en la cuenta), no se ofrece planearlo: se enseña ✔ con el día real
+  (`empezadoDesde`), y marcar el estudiado da por cumplido el día previsto. El «+» al final de las
+  columnas de repaso (decidido por Eudys: más intuitivo que un botón aparte) añade o quita
+  repasos para todos los temas; `cambiarRepasos`
+  recalcula el estado de cada tema. «Sin subir» lleva a `/temario?tema=N`.
+- **Planificador**: tipos «Plan de apoyo» (petróleo) y «UD» (pizarra), migración 0008. Lo
+  pendiente se arrastra a otro día; qué se puede mover lo decide `comoMover` (lo hecho no, un
+  repaso no a un día pasado). En el mes, pulsar un día abre un modal con ‹ › para cambiar de día.
+- **Fallos**, en dos pestañas: «Repasar» (preparar la sesión: los de hoy o todos los abiertos)
+  y «Banco de fallos» (todo lo fallado, abierto y superado, por tema y plegable, con filtros,
+  orden y la respuesta de cada uno; «Repasar estos N» repasa lo que se ve). Un superado que se
+  vuelve a fallar vuelve a la cola.
+- **Normativa**: descarga en Word (`docx`, se carga solo al pedirlo), PDF (imprimir del navegador)
+  o texto.
 
 Pendiente (apuntado por Eudys, 27-09-2026): **3.5** revisar la voz natural de los temas.
 

@@ -5,7 +5,9 @@ import clsx from "clsx";
 import { Boton } from "@/components/ui/boton";
 import { Dialogo } from "@/components/ui/dialogo";
 import { SECCIONES, TIPOS_ACTIVIDAD } from "@/components/ui/secciones";
+import { CampoFecha, CampoTexto, Casilla, Selector } from "@/components/ui/campos";
 import { useCuaderno } from "@/datos/almacen";
+import { tituloCorto } from "@/contenido/temario-pt";
 import { fechaLarga } from "@/nucleo/fechas";
 import type { TipoActividad } from "@/nucleo/tipos";
 
@@ -47,12 +49,13 @@ function Contenido({ objetivo, onCerrar }: { objetivo: ObjetivoAEditar; onCerrar
   const [fecha, setFecha] = useState(existente?.fecha ?? objetivo.fecha);
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
   const [falta, setFalta] = useState(false);
+  const [sinFecha, setSinFecha] = useState(false);
 
   function guardar(e: React.FormEvent) {
     e.preventDefault();
-    if (!texto.trim()) {
-      setFalta(true);
-      document.getElementById("obj-texto")?.focus();
+    if (!texto.trim() || !fecha) {
+      setFalta(!texto.trim());
+      setSinFecha(!fecha);
       return;
     }
     if (existente) {
@@ -70,31 +73,16 @@ function Contenido({ objetivo, onCerrar }: { objetivo: ObjetivoAEditar; onCerrar
 
   return (
     <form onSubmit={guardar} noValidate className="flex flex-col gap-4">
-      <div>
-        <label htmlFor="obj-texto" className="block text-[0.9rem] font-semibold text-tinta">
-          Qué vas a hacer
-        </label>
-        <input
-          id="obj-texto"
-          value={texto}
-          onChange={(e) => {
-            setTexto(e.target.value);
-            setFalta(false);
-          }}
-          placeholder="Leer el tema 7, hacer un supuesto de TEA…"
-          aria-invalid={falta ? true : undefined}
-          aria-describedby={falta ? "obj-texto-falta" : undefined}
-          className={clsx(
-            "mt-1.5 w-full rounded-pliegue border bg-papel-alto px-4 py-2.5",
-            falta ? "border-2 border-margen" : "border-linea",
-          )}
-        />
-        {falta ? (
-          <p id="obj-texto-falta" role="alert" className="mt-1 text-[0.85rem] font-bold text-margen">
-            Escribe qué vas a hacer: es lo único obligatorio.
-          </p>
-        ) : null}
-      </div>
+      <CampoTexto
+        etiqueta="Qué vas a hacer"
+        valor={texto}
+        onCambio={(v) => {
+          setTexto(v);
+          setFalta(false);
+        }}
+        placeholder="Leer el tema 7, preparar la UD de las emociones…"
+        error={falta ? "Escribe qué vas a hacer: es lo único obligatorio." : undefined}
+      />
 
       <fieldset>
         <legend className="mb-2 text-[0.9rem] font-semibold text-tinta">Tipo</legend>
@@ -120,37 +108,24 @@ function Contenido({ objetivo, onCerrar }: { objetivo: ObjetivoAEditar; onCerrar
       </fieldset>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="obj-tema" className="block text-[0.9rem] font-semibold text-tinta">
-            Tema <span className="font-normal text-apagado">(opcional)</span>
-          </label>
-          <select
-            id="obj-tema"
-            value={temaId}
-            onChange={(e) => setTemaId(e.target.value)}
-            className="mt-1.5 w-full rounded-pliegue border border-linea bg-papel-alto px-3 py-2.5"
-          >
-            <option value="">Ninguno</option>
-            {temas.map((t) => (
-              <option key={t.id} value={t.id}>
-                Tema {t.numero}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="obj-fecha" className="block text-[0.9rem] font-semibold text-tinta">
-            Día
-          </label>
-          <input
-            id="obj-fecha"
-            type="date"
-            value={fecha}
-            required
-            onChange={(e) => setFecha(e.target.value)}
-            className="mt-1.5 w-full rounded-pliegue border border-linea bg-papel-alto px-3 py-2.5"
-          />
-        </div>
+        <Selector
+          etiqueta="Tema (opcional)"
+          valor={temaId || "ninguno"}
+          onCambio={(v) => setTemaId(v === "ninguno" ? "" : v)}
+          opciones={[
+            { valor: "ninguno", texto: "Ninguno" },
+            ...temas.map((t) => ({ valor: t.id, texto: `Tema ${t.numero}`, detalle: tituloCorto(t.titulo, 48) })),
+          ]}
+        />
+        <CampoFecha
+          etiqueta="Día"
+          valor={fecha}
+          onCambio={(f) => {
+            setFecha(f);
+            setSinFecha(false);
+          }}
+          error={sinFecha ? "Elige un día." : undefined}
+        />
       </div>
 
       {(tipo === "temario" || tipo === "repaso") && temaId ? (
@@ -162,18 +137,12 @@ function Contenido({ objetivo, onCerrar }: { objetivo: ObjetivoAEditar; onCerrar
       ) : null}
 
       {existente ? (
-        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[0.95rem]">
-          <input
-            type="checkbox"
-            checked={existente.hecho}
-            onChange={() => alternarObjetivo(existente.id)}
-            className="h-4 w-4 accent-[color:var(--color-visto)]"
-          />
+        <Casilla marcada={existente.hecho} onCambio={() => alternarObjetivo(existente.id)}>
           Hecho
-        </label>
-      ) : (
+        </Casilla>
+      ) : fecha ? (
         <p className="text-[0.85rem] text-apagado">Para el {fechaLarga(fecha)}.</p>
-      )}
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2 border-t border-linea-suave pt-4">
         <Boton type="submit">

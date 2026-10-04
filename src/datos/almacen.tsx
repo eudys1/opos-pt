@@ -11,7 +11,7 @@ import {
   marcarSiguienteHito,
   type CodigoEdicion,
 } from "@/nucleo/hitos";
-import { esReprogramacion } from "@/nucleo/agenda";
+import { esInicioPrevisto, esReprogramacion, inicioPrevistoDe } from "@/nucleo/agenda";
 import {
   CONFIGURACION_ANDALUCIA,
   INTERVALOS_POR_DEFECTO,
@@ -273,6 +273,57 @@ export function useCuaderno() {
     });
   }, []);
 
+  /**
+   * Fija (o mueve) el día previsto para empezar un tema. Es un objetivo
+   * automático del tema: sale en el planificador y se marca como cualquiera.
+   */
+  const planearInicio = useCallback((temaId: string, fecha: string, hecho?: boolean) => {
+    actualizar((prev) => {
+      const existente = inicioPrevistoDe(prev.objetivos, temaId);
+      const numero = prev.temas.find((t) => t.id === temaId)?.numero;
+      const objetivos = existente
+        ? prev.objetivos.map((o) =>
+            o.id === existente.id ? { ...o, fecha, hecho: hecho ?? o.hecho } : o,
+          )
+        : [
+            ...prev.objetivos,
+            {
+              id: nuevoId(),
+              fecha,
+              texto: `Empezar el tema ${numero ?? ""}`.trim(),
+              temaId,
+              automatico: true,
+              hecho: hecho ?? false,
+              tipo: "temario" as const,
+            },
+          ];
+      return { ...prev, objetivos };
+    });
+  }, []);
+
+  const quitarInicio = useCallback((temaId: string) => {
+    actualizar((prev) => ({
+      ...prev,
+      objetivos: prev.objetivos.filter((o) => !(esInicioPrevisto(o) && o.temaId === temaId)),
+    }));
+  }, []);
+
+  /**
+   * Cambia cuántos repasos lleva cada tema (y cada cuántos días). El estado de
+   * cada tema se recalcula con el número nuevo: con un repaso más, un tema que
+   * tenía la vuelta completa vuelve a estar en repaso.
+   */
+  const cambiarRepasos = useCallback((intervalos: number[]) => {
+    actualizar((prev) => ({
+      ...prev,
+      perfil: { ...prev.perfil, intervalosRepaso: intervalos },
+      temas: prev.temas.map((t) => {
+        const estadoEstudio = estadoEstudioDe(prev.eventos, t.id, intervalos.length);
+        return estadoEstudio === t.estadoEstudio ? t : { ...t, estadoEstudio, actualizadoEn: ahoraISO() };
+      }),
+    }));
+  }, []);
+
   const deshacerUltimoHito = useCallback((temaId: string) => {
     actualizar((prev) => {
       const propios = prev.eventos
@@ -378,6 +429,9 @@ export function useCuaderno() {
       cambiarFechaDeHito,
       desmarcar,
       reprogramarRepaso,
+      planearInicio,
+      quitarInicio,
+      cambiarRepasos,
       deshacerUltimoHito,
       guardarTexto,
       renombrarTema,
@@ -398,6 +452,9 @@ export function useCuaderno() {
       cambiarFechaDeHito,
       desmarcar,
       reprogramarRepaso,
+      planearInicio,
+      quitarInicio,
+      cambiarRepasos,
       deshacerUltimoHito,
       guardarTexto,
       renombrarTema,
@@ -436,11 +493,19 @@ function conHitos(
   const hechos = new Set(
     eventos.filter((e) => e.temaId === temaId && e.tipo === "repaso").map((e) => e.numeroRepaso),
   );
-  const objetivos = opciones.limpiarReprogramacion
+  const limpios = opciones.limpiarReprogramacion
     ? prev.objetivos.filter(
         (o) => !(esReprogramacion(o) && o.temaId === temaId && hechos.has(o.numeroRepaso)),
       )
     : prev.objetivos;
+  // Marcar el tema como estudiado es haberlo empezado: si tenía un día previsto
+  // para empezar, se da por cumplido, y deja de salir pendiente en el planificador.
+  const objetivos =
+    estadoEstudio === "por_estudiar"
+      ? limpios
+      : limpios.map((o) =>
+          esInicioPrevisto(o) && o.temaId === temaId && !o.hecho ? { ...o, hecho: true } : o,
+        );
 
   return {
     ...prev,

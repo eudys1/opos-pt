@@ -10,6 +10,7 @@ import type { CorreccionCorta } from "@/ia/corregir-corta";
 import { cotejarLiteral, type Cotejo } from "@/nucleo/cotejo";
 import { estructuraDelTema, ubicarCita } from "@/nucleo/estructura";
 import { useCuaderno } from "@/datos/almacen";
+import { AreaTexto } from "@/components/ui/campos";
 
 /**
  * Una pregunta y su corrección. La usan Practicar y el repaso de fallos, para
@@ -367,28 +368,17 @@ function LeyLiteral({
       </p>
       <h2 className="font-display text-[1.55rem] leading-snug">{item.enunciado}</h2>
 
-      <div>
-        <label htmlFor={`ley-${item.id}`} className="block text-[0.9rem] font-semibold text-tinta">
-          Escribe lo que dice tu tema sobre esta norma
-        </label>
-        <p id={`ley-${item.id}-ayuda`} className="mb-1.5 text-[0.82rem] text-apagado">
-          Nombre completo, fecha y lo que regula. Da igual la puntuación y las mayúsculas; los
-          números y las fechas tienen que estar bien.
-        </p>
-        <textarea
-          id={`ley-${item.id}`}
-          aria-describedby={`ley-${item.id}-ayuda`}
-          value={texto}
-          disabled={Boolean(cotejo)}
-          aria-invalid={falta ? true : undefined}
-          onChange={(e) => {
-            setTexto(e.target.value);
-            setFalta("");
-          }}
-          rows={4}
-          className="w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 text-[0.97rem] leading-relaxed"
-        />
-      </div>
+      <AreaTexto
+        etiqueta="Escribe lo que dice tu tema sobre esta norma"
+        ayuda="Nombre completo, fecha y lo que regula. Da igual la puntuación y las mayúsculas; los números y las fechas tienen que estar bien."
+        valor={texto}
+        deshabilitada={Boolean(cotejo)}
+        onCambio={(v) => {
+          setTexto(v);
+          setFalta("");
+        }}
+        filas={4}
+      />
 
       {!cotejo ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -505,19 +495,13 @@ function Corta({
     <>
       <h2 className="font-display text-[1.55rem] leading-snug">{item.enunciado}</h2>
 
-      <div>
-        <label htmlFor={`resp-${item.id}`} className="block text-[0.9rem] font-semibold text-tinta">
-          Tu respuesta
-        </label>
-        <textarea
-          id={`resp-${item.id}`}
-          value={texto}
-          disabled={Boolean(correccion)}
-          onChange={(e) => setTexto(e.target.value)}
-          rows={5}
-          className="mt-1.5 w-full rounded-pliegue border border-linea bg-papel-alto px-4 py-3 text-[0.97rem] leading-relaxed"
-        />
-      </div>
+      <AreaTexto
+        etiqueta="Tu respuesta"
+        valor={texto}
+        deshabilitada={Boolean(correccion)}
+        onCambio={setTexto}
+        filas={5}
+      />
 
       {!correccion ? (
         <div className="flex flex-wrap items-center gap-3">
