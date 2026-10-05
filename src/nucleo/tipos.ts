@@ -38,6 +38,8 @@ export type EventoEstudio = {
   fecha: string;
   minutos?: number;
   nota?: string;
+  /** Si solo cubrió unos apartados del tema (ids de apartadosDelTema). Sin esto, el tema entero. */
+  apartados?: string[];
 };
 
 /**
@@ -61,6 +63,8 @@ export type Objetivo = {
   fecha: string;
   texto: string;
   temaId?: string;
+  /** Si es solo de unos apartados del tema. Sin esto, el tema entero. */
+  apartados?: string[];
   /**
    * Lo crea la app, no la persona. Sirve para reprogramar un repaso: mover el
    * repaso N de un tema a otro día (ver `numeroRepaso`).

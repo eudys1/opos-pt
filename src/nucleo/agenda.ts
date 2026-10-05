@@ -31,6 +31,13 @@ export type EntradaAgenda = {
   diasDeRetraso?: number;
   /** Solo en previstos: la fecha en que tocaba, si se ha movido a hoy por retraso. */
   tocabaEn?: FechaISO;
+  /** Si es solo de unos apartados del tema (ids). Sin esto, el tema entero. */
+  apartados?: string[];
+  /**
+   * Es un paso del Registro (estudiado, repasos, o el día para empezar un
+   * tema) y no un objetivo suelto: se marca igual en los dos sitios.
+   */
+  delRegistro?: boolean;
 };
 
 const TIPO_DE_EVENTO: Record<TipoEvento, TipoActividad> = {
@@ -80,7 +87,17 @@ export function empezadoDesde(
   objetivos: Objetivo[],
 ): Empezado | null {
   const inicio = inicioPrevistoDe(objetivos, temaId);
-  if (inicio?.hecho) return { fecha: inicio.fecha, motivo: "marcado" };
+  if (inicio?.hecho) {
+    // Si coincide con el día de algo hecho, es que se cumplió al marcarlo (el
+    // estudiado lo da por cumplido): el motivo es eso, no una fecha puesta a mano.
+    const delMismoDia = eventos.find((e) => e.temaId === temaId && e.fecha === inicio.fecha);
+    const motivo = !delMismoDia
+      ? "marcado"
+      : delMismoDia.tipo === "estudiado" || delMismoDia.tipo === "repaso"
+        ? "estudiado"
+        : "practica";
+    return { fecha: inicio.fecha, motivo };
+  }
   const candidatos: Empezado[] = [];
   for (const e of eventos) {
     if (e.temaId !== temaId) continue;
@@ -147,6 +164,8 @@ export function agenda(
       temaId: ev.temaId,
       indice: esHito ? (ev.tipo === "estudiado" ? 0 : (ev.numeroRepaso ?? 0)) : undefined,
       eventoId: ev.id,
+      apartados: ev.apartados,
+      delRegistro: esHito,
     });
   }
 
@@ -167,6 +186,7 @@ export function agenda(
       tipo: "repaso",
       estado: atrasado ? "atrasado" : "pendiente",
       origen: "previsto",
+      delRegistro: true,
       temaId,
       indice: siguiente.indice,
       diasDeRetraso: atrasado ? diasDeRetraso : undefined,
@@ -186,6 +206,8 @@ export function agenda(
       temaId: o.temaId,
       objetivoId: o.id,
       texto: o.texto,
+      apartados: o.apartados,
+      delRegistro: esInicioPrevisto(o),
     });
   }
 

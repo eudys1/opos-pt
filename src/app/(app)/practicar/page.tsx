@@ -12,7 +12,14 @@ import { useSesion } from "@/datos/sesion";
 import { useRecordado } from "@/datos/cache";
 import { moverEnLaCola } from "@/datos/cola-fallos";
 import { tituloCorto } from "@/contenido/temario-pt";
-import { CampoNumero } from "@/components/ui/campos";
+import { CampoNumero, Casilla } from "@/components/ui/campos";
+import { Dialogo } from "@/components/ui/dialogo";
+import { GeneradorBanco } from "@/components/generador-banco";
+import { SelectorApartados } from "@/components/selector-apartados";
+import { useTareas } from "@/datos/tareas";
+import { mapaDeApartados } from "@/nucleo/estructura";
+import type { Tema } from "@/nucleo/tipos";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 type Tipo = "test" | "corta" | "flashcard" | "ley";
 
@@ -38,9 +45,12 @@ function Practicar() {
   // Desde un tema, "Practicar las de este tema" llega con ?tema=<id>.
   const temaDelEnlace = useSearchParams().get("tema");
 
-  const [temasElegidos, setTemasElegidos] = useState<string[]>(() =>
-    temaDelEnlace ? [temaDelEnlace] : [],
+  // Tema → apartados elegidos. Vacío es el tema entero; sin la clave, el tema no entra.
+  const [elegidos, setElegidos] = useState<Record<string, string[]>>(() =>
+    temaDelEnlace ? { [temaDelEnlace]: [] } : {},
   );
+  const temasElegidos = Object.keys(elegidos);
+  const [creandoEn, setCreandoEn] = useState<Tema | null>(null);
   const [tiposElegidos, setTiposElegidos] = useState<Tipo[]>(["test", "flashcard", "ley"]);
   const [cuantas, setCuantas] = useState(10);
 
@@ -54,54 +64,82 @@ function Practicar() {
   // Cuántas preguntas hay de cada tema y tipo. Recordado entre visitas
   // (src/datos/cache.ts): al volver, las cifras están ya y no saltan.
   const {
-    datos: recuentoLeido,
+    datos: preguntasLeidas,
     listo: datosPedidos,
     error: errorCarga,
-  } = useRecordado<Record<string, Record<string, number>>>(
+    recargar,
+  } = useRecordado<{ id: string; tema_id: string; tipo: string; cita: string | null }[]>(
     cliente && usuario ? `practicar:${usuario.id}` : null,
     async () => {
       const { data, error: e } = await cliente!
         .from("items")
-        .select("tema_id, tipo")
+        .select("id, tema_id, tipo, cita")
         .eq("activo", true)
         .is("variante_de", null);
       if (e) throw new Error(e.message);
-      const mapa: Record<string, Record<string, number>> = {};
-      for (const fila of data ?? []) {
-        mapa[fila.tema_id] ??= {};
-        mapa[fila.tema_id][fila.tipo] = (mapa[fila.tema_id][fila.tipo] ?? 0) + 1;
-      }
-      return mapa;
+      return data ?? [];
     },
   );
-  const recuento = useMemo(() => recuentoLeido ?? {}, [recuentoLeido]);
 
-  const temasConBanco = useMemo(
-    () => temas.filter((t) => recuento[t.id] && Object.keys(recuento[t.id]).length > 0),
-    [temas, recuento],
+  // Cuando termina de crear preguntas de un tema (aunque sea en segundo plano),
+  // la lista se pone al día sola.
+  const terminadas = useTareas().filter((t) => t.id.startsWith("banco:") && t.estado === "hecha").length;
+  const [vistas, setVistas] = useState(terminadas);
+  if (terminadas !== vistas) {
+    setVistas(terminadas);
+    recargar();
+  }
+
+  // De cada pregunta, los apartados a los que pertenece (por su cita).
+  const preguntas = useMemo(() => {
+    const mapas = new Map(temas.map((t) => [t.id, mapaDeApartados(t.texto ?? "")]));
+    return (preguntasLeidas ?? []).map((q) => ({
+      ...q,
+      apartados: q.cita ? (mapas.get(q.tema_id)?.deCita(q.cita) ?? []) : [],
+    }));
+  }, [preguntasLeidas, temas]);
+
+  // Cuántas hay por tema y por apartado, para enseñarlo y para no ofrecer vacíos.
+  const porTema = useMemo(() => {
+    const mapa: Record<string, { total: number; porApartado: Record<string, number> }> = {};
+    for (const q of preguntas) {
+      mapa[q.tema_id] ??= { total: 0, porApartado: {} };
+      mapa[q.tema_id].total += 1;
+      for (const a of q.apartados) mapa[q.tema_id].porApartado[a] = (mapa[q.tema_id].porApartado[a] ?? 0) + 1;
+    }
+    return mapa;
+  }, [preguntas]);
+
+  const temasConBanco = useMemo(() => temas.filter((t) => porTema[t.id]?.total), [temas, porTema]);
+  // Subidos pero sin preguntas: se enseñan para poder crearlas desde aquí.
+  const subidosSinBanco = temas.filter((t) => t.estadoContenido !== "sin_contenido" && !porTema[t.id]?.total);
+  const sinSubir = temas.filter((t) => t.estadoContenido === "sin_contenido" && !porTema[t.id]?.total).length;
+
+  /** Las preguntas que entran con lo elegido: temas, apartados y tipos. */
+  const queEntran = useCallback(
+    () =>
+      preguntas.filter((q) => {
+        if (!tiposElegidos.includes(q.tipo as Tipo)) return false;
+        if (temasElegidos.length === 0) return true;
+        const apartados = elegidos[q.tema_id];
+        if (!apartados) return false;
+        return apartados.length === 0 || q.apartados.some((a) => apartados.includes(a));
+      }),
+    [preguntas, tiposElegidos, temasElegidos, elegidos],
   );
-
-  const disponibles = useMemo(() => {
-    const ids = temasElegidos.length > 0 ? temasElegidos : temasConBanco.map((t) => t.id);
-    return ids.reduce((acc, id) => {
-      const porTipo = recuento[id] ?? {};
-      return acc + tiposElegidos.reduce((s, tipo) => s + (porTipo[tipo] ?? 0), 0);
-    }, 0);
-  }, [temasElegidos, temasConBanco, recuento, tiposElegidos]);
+  const disponibles = queEntran().length;
 
   const empezar = useCallback(async () => {
     if (!cliente) return;
     setError("");
-    const ids = temasElegidos.length > 0 ? temasElegidos : temasConBanco.map((t) => t.id);
+    // Se eligen aquí, ya barajadas, y solo se piden esas.
+    const ids = barajar(queEntran().map((q) => q.id)).slice(0, cuantas);
     const { data, error: e } = await cliente
       .from("items")
       .select(
         "id, tema_id, tipo, enunciado, opciones, correcta, respuesta, explicacion, cita, desde_borrador, pide",
       )
-      .eq("activo", true)
-      .is("variante_de", null)
-      .in("tema_id", ids)
-      .in("tipo", tiposElegidos);
+      .in("id", ids.length ? ids : ["-"]);
 
     if (e) {
       setError(e.message);
@@ -117,7 +155,7 @@ function Practicar() {
     setIndice(0);
     setAciertos(0);
     setResultados([]);
-  }, [cliente, temasElegidos, temasConBanco, tiposElegidos, cuantas]);
+  }, [cliente, queEntran, cuantas]);
 
   const anotar = useCallback(
     async (item: Item, veredicto: Veredicto) => {
@@ -156,7 +194,7 @@ function Practicar() {
 
   if (!datosPedidos) return <p className="text-apagado">Buscando tus preguntas…</p>;
 
-  if (temasConBanco.length === 0) {
+  if (temasConBanco.length === 0 && subidosSinBanco.length === 0) {
     return (
       <Aviso titulo="Todavía no hay preguntas">
         Las preguntas se crean desde un tema que ya tenga texto: entra en{" "}
@@ -328,8 +366,9 @@ function Practicar() {
     <div className="mx-auto flex max-w-4xl flex-col gap-6">
       <header>
         <h1 className="text-[2.1rem]">Practicar</h1>
-        <p className="mt-1 text-[0.98rem] text-texto">
-          Solo aparecen los temas que ya tienen preguntas creadas a partir de tus apuntes.
+        <p className="mt-1 max-w-[64ch] text-[0.98rem] text-texto">
+          Preguntas sacadas de tus apuntes. Elige temas (o solo unos apartados) y el tipo; si no
+          marcas ningún tema, entran todos.
         </p>
       </header>
 
@@ -340,45 +379,76 @@ function Practicar() {
       ) : null}
 
       <Ficha className="flex flex-col gap-4 px-6 py-5">
-        <fieldset>
-          <legend className="text-[0.95rem] font-semibold text-tinta">Temas</legend>
-          <p className="mb-3 text-[0.85rem] text-apagado">
-            Si no marcas ninguno, entran todos los que tienen preguntas.
-          </p>
-          <div className="flex flex-wrap gap-2">
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-[0.95rem] font-semibold text-tinta">Temas</legend>
+          <ul className="flex flex-col divide-y-2 divide-linea-suave rounded-pliegue border-2 border-linea">
             {temasConBanco.map((tema) => {
-              const elegido = temasElegidos.includes(tema.id);
-              const total = Object.values(recuento[tema.id] ?? {}).reduce((a, b) => a + b, 0);
+              const elegido = tema.id in elegidos;
               return (
-                <button
-                  key={tema.id}
-                  type="button"
-                  aria-pressed={elegido}
-                  onClick={() =>
-                    setTemasElegidos((previos) =>
-                      previos.includes(tema.id)
-                        ? previos.filter((id) => id !== tema.id)
-                        : [...previos, tema.id],
-                    )
-                  }
-                  className={clsx(
-                    "min-h-11 rounded-pliegue border px-3 py-2 text-left text-[0.88rem]",
-                    elegido
-                      ? "border-acento-vivo bg-acento-fondo font-extrabold text-acento"
-                      : "border-linea bg-papel-alto hover:border-borde",
-                  )}
-                >
-                  <span className="text-tenue" data-numerico>
-                    {String(tema.numero).padStart(2, "0")}
-                  </span>{" "}
-                  {tituloCorto(tema.titulo, 34)}{" "}
-                  <span className="text-apagado" data-numerico>
-                    ({total})
+                <li key={tema.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5">
+                  <Casilla
+                    marcada={elegido}
+                    onCambio={(v) =>
+                      setElegidos((previos) => {
+                        const siguientes = { ...previos };
+                        if (v) siguientes[tema.id] = [];
+                        else delete siguientes[tema.id];
+                        return siguientes;
+                      })
+                    }
+                    className="min-w-0 flex-1"
+                  >
+                    <span className="tabular-nums text-tenue">{String(tema.numero).padStart(2, "0")}</span>{" "}
+                    <span className={elegido ? "font-bold" : ""}>{tituloCorto(tema.titulo, 52)}</span>
+                  </Casilla>
+                  <span className="text-[0.82rem] text-apagado" data-numerico>
+                    {porTema[tema.id].total} preguntas
                   </span>
-                </button>
+                  {/* Solo al elegir el tema aparece cómo acotarlo: la lista no se carga. */}
+                  {elegido ? (
+                    <div className="w-full sm:w-56">
+                      <SelectorApartados
+                        temaId={tema.id}
+                        valor={elegidos[tema.id]}
+                        onCambio={(ids) => setElegidos((previos) => ({ ...previos, [tema.id]: ids }))}
+                        cuantas={porTema[tema.id].porApartado}
+                        etiqueta="Apartados"
+                        ayuda="Al lado de cada apartado, cuántas preguntas tiene."
+                        compacto
+                      />
+                    </div>
+                  ) : null}
+                </li>
               );
             })}
-          </div>
+            {subidosSinBanco.map((tema) => (
+              <li key={tema.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5">
+                <span className="min-w-0 flex-1 text-[0.95rem] text-apagado">
+                  <span className="tabular-nums text-tenue">{String(tema.numero).padStart(2, "0")}</span>{" "}
+                  {tituloCorto(tema.titulo, 52)}
+                </span>
+                <Link
+                  href={`/temario?tema=${tema.numero}`}
+                  className="regla text-[0.82rem] font-bold text-apagado hover:text-tinta"
+                >
+                  subido, sin preguntas · ver el tema →
+                </Link>
+                <Boton tono="secundario" onClick={() => setCreandoEn(tema)}>
+                  Crear preguntas
+                  <MarcaIA />
+                </Boton>
+              </li>
+            ))}
+          </ul>
+          {sinSubir > 0 ? (
+            <p className="text-[0.84rem] text-apagado">
+              {sinSubir} {sinSubir === 1 ? "tema no sale" : "temas no salen"} porque aún no{" "}
+              {sinSubir === 1 ? "está subido" : "están subidos"}: no hay de dónde sacar preguntas.{" "}
+              <Link href="/temario" className="regla font-bold text-tinta">
+                Subir en Mi temario
+              </Link>
+            </p>
+          ) : null}
         </fieldset>
 
         <fieldset>
@@ -435,6 +505,17 @@ function Practicar() {
           </span>
         </div>
       </Ficha>
+
+      <Dialogo
+        abierto={creandoEn !== null}
+        onCerrar={() => setCreandoEn(null)}
+        titulo={creandoEn ? `Crear preguntas · tema ${creandoEn.numero}` : ""}
+        subtitulo="Puedes cerrar esta ventana: sigue en segundo plano y el tema aparecerá en la lista al terminar."
+      >
+        {creandoEn ? (
+          <GeneradorBanco temaId={creandoEn.id} numero={creandoEn.numero} hayTexto={Boolean(creandoEn.texto?.trim())} />
+        ) : null}
+      </Dialogo>
     </div>
   );
 }

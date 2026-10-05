@@ -5,6 +5,7 @@ import { TEMARIO_PT } from "@/contenido/temario-pt";
 import { hoyISO } from "@/nucleo/fechas";
 import { proximoNumeroDeRepaso } from "@/nucleo/repasos";
 import {
+  apartadosDeHito,
   cambiarFechaHito,
   desmarcarHito,
   estadoEstudioDe,
@@ -223,11 +224,12 @@ export function useCuaderno() {
    * Marca el siguiente hito de un tema en la fecha dada. Devuelve el código de
    * error si no se puede, para que la pantalla lo explique.
    */
-  const marcarHito = useCallback((temaId: string, fecha: string): CodigoEdicion | null => {
+  const marcarHito = useCallback((temaId: string, fecha: string, apartados?: string[]): CodigoEdicion | null => {
     const r = marcarSiguienteHito(estado.eventos, temaId, fecha, {
       hoy: hoyISO(),
       totalRepasos: estado.perfil.intervalosRepaso.length,
       nuevoId,
+      apartados,
     });
     if (!r.ok) return r.codigo;
     actualizar((prev) => conHitos(prev, temaId, r.eventos, { limpiarReprogramacion: true }));
@@ -243,6 +245,11 @@ export function useCuaderno() {
     },
     [],
   );
+
+  /** Qué apartados cubrió un hito ya hecho (vacío: el tema entero). */
+  const cambiarApartadosDeHito = useCallback((temaId: string, indice: number, apartados: string[]) => {
+    actualizar((prev) => ({ ...prev, eventos: apartadosDeHito(prev.eventos, temaId, indice, apartados) }));
+  }, []);
 
   const desmarcar = useCallback((temaId: string, indice: number) => {
     actualizar((prev) => conHitos(prev, temaId, desmarcarHito(prev.eventos, temaId, indice)));
@@ -373,12 +380,20 @@ export function useCuaderno() {
   }, []);
 
   const anadirObjetivo = useCallback(
-    (fecha: string, texto: string, tipo: TipoActividad = "otro", temaId?: string) => {
+    (fecha: string, texto: string, tipo: TipoActividad = "otro", temaId?: string, apartados?: string[]) => {
       actualizar((prev) => ({
         ...prev,
         objetivos: [
           ...prev.objetivos,
-          { id: nuevoId(), fecha, texto, temaId, tipo, hecho: false },
+          {
+            id: nuevoId(),
+            fecha,
+            texto,
+            temaId,
+            tipo,
+            hecho: false,
+            ...(temaId && apartados?.length ? { apartados } : {}),
+          },
         ],
       }));
     },
@@ -386,7 +401,7 @@ export function useCuaderno() {
   );
 
   const editarObjetivo = useCallback(
-    (id: string, cambios: Partial<Pick<Objetivo, "texto" | "fecha" | "tipo" | "temaId">>) => {
+    (id: string, cambios: Partial<Pick<Objetivo, "texto" | "fecha" | "tipo" | "temaId" | "apartados">>) => {
       actualizar((prev) => ({
         ...prev,
         objetivos: prev.objetivos.map((o) => (o.id === id ? { ...o, ...cambios } : o)),
@@ -427,6 +442,7 @@ export function useCuaderno() {
       marcarRepaso,
       marcarHito,
       cambiarFechaDeHito,
+      cambiarApartadosDeHito,
       desmarcar,
       reprogramarRepaso,
       planearInicio,
@@ -450,6 +466,7 @@ export function useCuaderno() {
       marcarRepaso,
       marcarHito,
       cambiarFechaDeHito,
+      cambiarApartadosDeHito,
       desmarcar,
       reprogramarRepaso,
       planearInicio,
@@ -499,12 +516,16 @@ function conHitos(
       )
     : prev.objetivos;
   // Marcar el tema como estudiado es haberlo empezado: si tenía un día previsto
-  // para empezar, se da por cumplido, y deja de salir pendiente en el planificador.
+  // para empezar, se da por cumplido el día del estudiado (el real, no el
+  // planeado), y deja de salir pendiente en el planificador.
+  const diaEstudiado = eventos.find((e) => e.temaId === temaId && e.tipo === "estudiado")?.fecha;
   const objetivos =
-    estadoEstudio === "por_estudiar"
+    estadoEstudio === "por_estudiar" || !diaEstudiado
       ? limpios
       : limpios.map((o) =>
-          esInicioPrevisto(o) && o.temaId === temaId && !o.hecho ? { ...o, hecho: true } : o,
+          esInicioPrevisto(o) && o.temaId === temaId && !o.hecho
+            ? { ...o, hecho: true, fecha: diaEstudiado, aplazadoDe: o.fecha !== diaEstudiado ? o.fecha : o.aplazadoDe }
+            : o,
         );
 
   return {

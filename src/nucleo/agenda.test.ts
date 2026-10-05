@@ -216,6 +216,13 @@ describe("empezadoDesde", () => {
     });
   });
 
+  it("si el día marcado coincide con el estudiado, el motivo es el estudiado", () => {
+    expect(empezadoDesde("t7", [ev("estudiado", "2026-10-12")], [inicio(true, "2026-10-12")])).toEqual({
+      fecha: "2026-10-12",
+      motivo: "estudiado",
+    });
+  });
+
   it("lo de otros temas no cuenta", () => {
     expect(empezadoDesde("t4", [ev("estudiado", "2026-10-12")], [inicio(true)])).toBeNull();
   });

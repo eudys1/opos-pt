@@ -449,7 +449,8 @@ export function Casilla({
           <path d="m3.5 8.5 3 3 6-6.5" />
         </svg>
       </span>
-      <span>{children}</span>
+      {/* min-w-0: deja que un texto largo se corte con «…» en vez de desbordar. */}
+      <span className="min-w-0 flex-1">{children}</span>
     </Checkbox>
   );
 }

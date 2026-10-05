@@ -49,6 +49,7 @@ type FilaEvento = {
   fecha: string;
   minutos: number | null;
   nota: string | null;
+  apartados?: string[] | null;
 };
 
 type FilaObjetivo = {
@@ -61,6 +62,7 @@ type FilaObjetivo = {
   aplazado_de: string | null;
   tipo?: TipoActividad | null;
   numero_repaso?: number | null;
+  apartados?: string[] | null;
 };
 
 type FilaPerfil = {
@@ -176,6 +178,7 @@ export async function sincronizar(
       fecha: fila.fecha,
       minutos: fila.minutos ?? undefined,
       nota: fila.nota ?? undefined,
+      apartados: fila.apartados?.length ? fila.apartados : undefined,
     });
   }
 
@@ -194,6 +197,7 @@ export async function sincronizar(
       fecha: evento.fecha,
       minutos: evento.minutos ?? null,
       nota: evento.nota ?? null,
+      apartados: evento.apartados?.length ? evento.apartados : null,
     });
   }
 
@@ -209,6 +213,7 @@ export async function sincronizar(
       aplazadoDe: fila.aplazado_de ?? undefined,
       tipo: fila.tipo ?? undefined,
       numeroRepaso: fila.numero_repaso ?? undefined,
+      apartados: fila.apartados?.length ? fila.apartados : undefined,
     });
   }
 
@@ -222,11 +227,14 @@ export async function sincronizar(
       yaEsta.hecho === objetivo.hecho &&
       yaEsta.fecha === objetivo.fecha &&
       yaEsta.texto === objetivo.texto &&
-      yaEsta.tipo === objetivo.tipo
+      yaEsta.tipo === objetivo.tipo &&
+      (yaEsta.apartados ?? []).join() === (objetivo.apartados ?? []).join()
     )
       continue;
     const temaId = idRemotoDeLocal(objetivo.temaId);
-    objetivosPorId.set(id, { ...objetivo, id });
+    // Como en los eventos: el objetivo pasa a apuntar al id del tema en la cuenta,
+    // no al provisional del navegador ("tema-7"), que la base no acepta.
+    objetivosPorId.set(id, { ...objetivo, id, temaId: temaId ?? undefined });
     objetivosASubir.push({
       id,
       usuario_id: usuarioId,
@@ -238,6 +246,7 @@ export async function sincronizar(
       aplazado_de: objetivo.aplazadoDe ?? null,
       tipo: objetivo.tipo ?? "otro",
       numero_repaso: objetivo.numeroRepaso ?? null,
+      apartados: objetivo.apartados?.length ? objetivo.apartados : null,
     });
   }
 
@@ -345,6 +354,7 @@ export async function guardarEnLaNube(
       fecha: e.fecha,
       minutos: e.minutos ?? null,
       nota: e.nota ?? null,
+      apartados: e.apartados?.length ? e.apartados : null,
     }));
 
   const objetivos = estado.objetivos
@@ -360,6 +370,7 @@ export async function guardarEnLaNube(
       aplazado_de: o.aplazadoDe ?? null,
       tipo: o.tipo ?? "otro",
       numero_repaso: o.numeroRepaso ?? null,
+      apartados: o.apartados?.length ? o.apartados : null,
     }));
 
   const respuestas = await Promise.all([

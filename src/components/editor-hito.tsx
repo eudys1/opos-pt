@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Boton } from "@/components/ui/boton";
 import { Dialogo } from "@/components/ui/dialogo";
 import { CampoFecha } from "@/components/ui/campos";
+import { SelectorApartados } from "@/components/selector-apartados";
 import { useCuaderno } from "@/datos/almacen";
 import {
   desmarcarHito,
@@ -12,7 +13,7 @@ import {
   limitesDeFecha,
   type CodigoEdicion,
 } from "@/nucleo/hitos";
-import { reprogramadosPorTema } from "@/nucleo/agenda";
+import { esInicioPrevisto, reprogramadosPorTema } from "@/nucleo/agenda";
 import { progresoDelTema } from "@/nucleo/repasos";
 import { fechaLarga, hoyISO } from "@/nucleo/fechas";
 
@@ -58,6 +59,7 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
     perfil,
     marcarHito,
     cambiarFechaDeHito,
+    cambiarApartadosDeHito,
     desmarcar,
     reprogramarRepaso,
   } = useCuaderno();
@@ -74,6 +76,11 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
   const [fecha, setFecha] = useState(hecho?.evento.fecha ?? hoy);
   const [fechaMover, setFechaMover] = useState(siguiente?.tocaEn && siguiente.tocaEn > hoy ? siguiente.tocaEn : hoy);
   const [confirmarQuitar, setConfirmarQuitar] = useState(false);
+  // Qué apartados cubre: al marcarlo, o los que ya tenía si está hecho. Vacío es el tema entero.
+  const [apartados, setApartados] = useState<string[]>(hecho?.evento.apartados ?? []);
+  const apartadosCambiados = (hecho?.evento.apartados ?? []).join() !== apartados.join();
+  const verbo = hito.indice === 0 ? "estudiado" : "repasado";
+  const inicioPendiente = objetivos.find((o) => esInicioPrevisto(o) && o.temaId === hito.temaId && !o.hecho);
   const [error, setError] = useState("");
 
   const explicar = (codigo: CodigoEdicion) => {
@@ -138,6 +145,27 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
             </Boton>
           </div>
         </form>
+
+        <div className="flex flex-col gap-2 border-t border-linea-suave pt-4">
+          <SelectorApartados
+            temaId={hito.temaId}
+            valor={apartados}
+            onCambio={setApartados}
+            etiqueta={`Qué has ${verbo}`}
+            ayuda="Si fue solo una parte del tema, márcala. Nada marcado es el tema entero."
+          />
+          {apartadosCambiados ? (
+            <Boton
+              className="self-start"
+              onClick={() => {
+                cambiarApartadosDeHito(hito.temaId, hito.indice, apartados);
+                onCerrar();
+              }}
+            >
+              Guardar los apartados
+            </Boton>
+          ) : null}
+        </div>
 
         {error ? (
           <p role="alert" className="text-[0.9rem] text-margen">
@@ -236,11 +264,18 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
         onSubmit={(e) => {
           e.preventDefault();
           if (!fecha) return setError("Elige el día en que lo hiciste.");
-          const codigo = marcarHito(hito.temaId, fecha);
+          const codigo = marcarHito(hito.temaId, fecha, apartados);
           if (codigo) explicar(codigo);
           else onCerrar();
         }}
       >
+        <SelectorApartados
+          temaId={hito.temaId}
+          valor={apartados}
+          onCambio={setApartados}
+          etiqueta={`Qué has ${verbo}`}
+          ayuda="Si fue solo una parte del tema, márcala. Nada marcado es el tema entero."
+        />
         <div className="flex flex-wrap items-end gap-2">
           <CampoFecha
             etiqueta="Marcar como hecho el día"
@@ -257,6 +292,12 @@ function Contenido({ hito, onCerrar }: { hito: HitoAEditar; onCerrar: () => void
           </Boton>
         </div>
         <p className="text-[0.82rem] text-apagado">Si lo hiciste otro día y se te olvidó marcarlo, pon ese día.</p>
+        {hito.indice === 0 && inicioPendiente ? (
+          <p className="text-[0.82rem] font-bold text-sec-temario">
+            Al marcarlo, «Empezar el tema» (previsto el {fechaLarga(inicioPendiente.fecha)}) se da por
+            cumplido ese mismo día.
+          </p>
+        ) : null}
       </form>
 
       {hito.indice > 0 ? (

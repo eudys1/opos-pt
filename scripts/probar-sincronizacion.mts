@@ -93,10 +93,11 @@ function estadoDePrueba(): Estado {
         temaId: "tema-1",
         tipo: "estudiado",
         fecha: hoy,
+        apartados: ["1.1", "2"],
       },
     ],
     objetivos: [
-      { id: crypto.randomUUID(), fecha: hoy, texto: "Leer el tema 1", hecho: false },
+      { id: crypto.randomUUID(), fecha: hoy, texto: "Leer el tema 1", hecho: false, temaId: "tema-1", apartados: ["3"] },
     ],
   };
 }
@@ -126,6 +127,9 @@ async function principal() {
     comprobar("una segunda sincronización no duplica eventos", segunda.estado.eventos.length === 1);
     comprobar("ni duplica temas", segunda.estado.temas.length === 2);
     comprobar("y no vuelve a subir lo mismo", segunda.subidos.eventos === 0);
+    // Lo que vuelve de la cuenta trae los apartados de cada cosa (columnas de la migración 0009).
+    comprobar("el evento conserva sus apartados", segunda.estado.eventos[0].apartados?.join() === "1.1,2");
+    comprobar("el objetivo conserva sus apartados", segunda.estado.objetivos[0].apartados?.join() === "3");
 
     // 3. Un cambio local se guarda arriba.
     const cambiado: Estado = {

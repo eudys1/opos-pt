@@ -13,6 +13,7 @@ import { detectarNormas } from "@/nucleo/normas";
 import { BancoNormativa } from "@/components/banco-normativa";
 import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { fechaLarga } from "@/nucleo/fechas";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 type Hallazgo = {
   nombre: string;
@@ -136,6 +137,7 @@ export default function PaginaNormativa() {
         {usuario ? (
           <Boton onClick={() => void comprobar()} disabled={comprobando}>
             {comprobando ? "Buscando en el BOE…" : "Comprobar normativa"}
+            <MarcaIA />
           </Boton>
         ) : (
           <Link href="/entrar" className="regla text-[0.95rem] font-semibold text-tinta">

@@ -16,6 +16,7 @@ import { olvidar } from "@/datos/cache";
 import { CRITERIOS_TEMA } from "@/ia/corregir-tema";
 import type { CorreccionSupuesto } from "@/ia/supuestos";
 import { AreaTexto, Opciones } from "@/components/ui/campos";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 /**
  * La sala de examen.
@@ -570,6 +571,7 @@ export default function SalaDeExamen({ params }: { params: Promise<{ id: string 
             disabled={entregando}
           >
             {entregando ? "Corrigiendo…" : "Entregar y corregir"}
+            <MarcaIA />
           </Boton>
           {entregando ? (
             <BarraProgreso

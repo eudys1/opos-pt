@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { estructuraDelTema, indiceDelTema, textoParaEscuchar, ubicarCita } from "./estructura";
+import {
+  apartadosDelTema,
+  estructuraDelTema,
+  indiceDelTema,
+  mapaDeApartados,
+  nombreDeApartado,
+  textoParaEscuchar,
+  ubicarCita,
+} from "./estructura";
 
 const TEXTO = `TEMA 3: EL PROCESO DE IDENTIFICACIÓN Y VALORACIÓN DE LAS NECESIDADES
 EDUCATIVAS ESPECIALES DE LOS ALUMNOS Y ALUMNAS.
@@ -64,6 +72,63 @@ describe("estructura del tema", () => {
       "Texto previo.\n3 de cada 10 alumnos con necesidades educativas especiales están escolarizados en centros ordinarios con apoyos.",
     );
     expect(b.every((x) => x.tipo === "parrafo")).toBe(true);
+  });
+});
+
+describe("otras formas de numerar", () => {
+  it("reconoce 1.-, 1), numeración romana, Markdown y títulos en mayúsculas sin número", () => {
+    const b = estructuraDelTema(
+      [
+        "I. MARCO LEGISLATIVO",
+        "Texto del marco.",
+        "1.- LA EVALUACIÓN",
+        "Texto uno.",
+        "1.1) Concepto de evaluación",
+        "Texto uno uno.",
+        "## Momentos de la evaluación",
+        "Texto de los momentos.",
+        "ORIENTACIONES METODOLÓGICAS",
+        "Texto final.",
+      ].join("\n"),
+    );
+    const titulos = b.filter((x) => x.tipo !== "parrafo").map((x) => `${x.tipo}:${x.texto}`);
+    expect(titulos).toEqual([
+      "epigrafe:I. MARCO LEGISLATIVO",
+      "epigrafe:1.- LA EVALUACIÓN",
+      "subepigrafe:1.1) Concepto de evaluación",
+      "subepigrafe:Momentos de la evaluación",
+      "epigrafe:ORIENTACIONES METODOLÓGICAS",
+    ]);
+  });
+
+  it("una frase en mayúsculas dentro de un párrafo sin acabar no se convierte en título", () => {
+    const b = estructuraDelTema("La ley establece que\nTODOS LOS ALUMNOS TIENEN DERECHO\na una educación de calidad.");
+    expect(b.every((x) => x.tipo === "parrafo")).toBe(true);
+  });
+});
+
+describe("apartados", () => {
+  it("cada apartado lleva su número como id y su nivel", () => {
+    const apartados = apartadosDelTema(TEXTO);
+    expect(apartados.map((a) => `${a.id}|${a.nivel}|${a.titulo}`)).toEqual([
+      "introduccion|1|INTRODUCCIÓN",
+      "1|1|EL PROCESO DE IDENTIFICACIÓN",
+      "1.1|2|CONCEPTO Y ENFOQUE",
+      "2|1|DECISIONES DE ESCOLARIZACIÓN",
+    ]);
+  });
+
+  it("una cita pertenece a su subapartado y al apartado que lo contiene", () => {
+    const { deCita } = mapaDeApartados(TEXTO);
+    expect(deCita("La evaluación psicopedagógica es el conjunto de actuaciones")).toEqual(["1.1", "1"]);
+    expect(deCita("garantizar una respuesta educativa inclusiva")).toEqual(["introduccion"]);
+    expect(deCita("los dinosaurios vivieron en el cretácico")).toEqual([]);
+  });
+
+  it("nombra lo guardado aunque el apartado ya no exista", () => {
+    const apartados = apartadosDelTema(TEXTO);
+    expect(nombreDeApartado(apartados, "1.1")).toBe("1.1 CONCEPTO Y ENFOQUE");
+    expect(nombreDeApartado(apartados, "7.3")).toBe("7.3");
   });
 });
 

@@ -13,6 +13,7 @@ import { useSesion } from "@/datos/sesion";
 import { useRecordado } from "@/datos/cache";
 import { RUBRICA_POR_DEFECTO } from "@/contenido/supuestos";
 import type { CorreccionSupuesto } from "@/ia/supuestos";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 type Supuesto = {
   id: string;
@@ -135,7 +136,8 @@ function Supuestos() {
             Añadir el mío
           </Boton>
           <Boton onClick={() => void generar()} disabled={generando}>
-            Crear uno con la IA
+            Crear uno
+            <MarcaIA />
           </Boton>
         </div>
       </header>
@@ -316,6 +318,7 @@ function PracticaSupuesto({ supuesto, onVolver }: { supuesto: Supuesto; onVolver
             <div className="flex flex-wrap items-center gap-3">
               <Boton onClick={() => void corregir()}>
                 Corregir
+                <MarcaIA />
               </Boton>
               <span className="text-[0.85rem] text-apagado" data-numerico>
                 {texto.trim() ? texto.trim().split(/\s+/).length : 0} palabras

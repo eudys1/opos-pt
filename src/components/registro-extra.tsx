@@ -58,6 +58,10 @@ export function CeldaInicio({
         <span className="text-apagado" data-numerico>
           {empezado ? fechaCorta(empezado.fecha) : "empezado"}
         </span>
+        {/* De dónde sale: si quitas tu día, se ve que sigue empezado por el estudiado. */}
+        <span className="text-[0.64rem] font-extrabold leading-none text-tenue">
+          {empezado?.motivo === "marcado" ? "tuyo" : tema.estadoEstudio !== "por_estudiar" ? "estudiado" : "práctica"}
+        </span>
         <span className="sr-only">
           Empezado{empezado ? ` el ${fechaLarga(empezado.fecha)}` : ""}: {porque}. Cambiar.
         </span>
@@ -133,7 +137,7 @@ export function EditorInicio({
       abierto={tema !== null}
       onCerrar={onCerrar}
       titulo={tema ? `Empezar el tema ${tema.numero}` : ""}
-      subtitulo="El día que te propones empezar a estudiarlo. Sale también en el planificador."
+      subtitulo="Es el mismo dato que «Empezar el tema» del planificador: lo que cambies aquí, cambia allí."
     >
       {/* Se monta de nuevo con cada tema: el borrador nace de lo guardado. */}
       {tema ? <FormularioInicio key={tema.id} tema={tema} practicado={practicado} onCerrar={onCerrar} /> : null}

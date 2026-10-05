@@ -6,6 +6,7 @@ import { Boton } from "@/components/ui/boton";
 import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { useSesion } from "@/datos/sesion";
 import { lanzarTarea, useTarea } from "@/datos/tareas";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 /**
  * Crea preguntas de un tema a partir de su texto.
@@ -113,6 +114,7 @@ export function GeneradorBanco({
       <div className="flex flex-wrap items-center gap-3">
         <Boton tono="secundario" onClick={() => generar(false)} disabled={trabajando}>
           {trabajando ? "Creando preguntas…" : yaHabia ? "Crear más preguntas" : "Crear preguntas de este tema"}
+          <MarcaIA />
         </Boton>
         {yaHabia && !trabajando ? (
           <Link href={enlacePracticar} className="regla text-[0.92rem] font-extrabold text-tinta">

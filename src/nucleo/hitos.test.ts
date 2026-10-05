@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  apartadosDeHito,
   cambiarFechaHito,
   desmarcarHito,
   estadoEstudioDe,
@@ -111,5 +112,28 @@ describe("estado del tema", () => {
     expect(estadoEstudioDe(eventos, "t4", 5)).toBe("estudiado");
     expect(estadoEstudioDe(eventos, "t3", 5)).toBe("en_repaso");
     expect(estadoEstudioDe(eventos, "t3", 2)).toBe("dominado");
+  });
+});
+
+describe("apartados de un hito", () => {
+  it("marcar solo unos apartados los guarda en el hito; sin ellos es el tema entero", () => {
+    let n = 0;
+    const r = marcarSiguienteHito([], "t1", "2026-10-01", {
+      hoy: "2026-10-05",
+      totalRepasos: 5,
+      nuevoId: () => `id${++n}`,
+      apartados: ["1.1", "2"],
+    });
+    expect(r.ok && r.eventos[0].apartados).toEqual(["1.1", "2"]);
+    const entero = marcarSiguienteHito([], "t1", "2026-10-01", { hoy: "2026-10-05", totalRepasos: 5, nuevoId: () => "x" });
+    expect(entero.ok && "apartados" in entero.eventos[0]).toBe(false);
+  });
+
+  it("se pueden cambiar después, y vaciarlos vuelve al tema entero", () => {
+    const eventos = [{ id: "e", temaId: "t1", tipo: "estudiado" as const, fecha: "2026-10-01" }];
+    const con = apartadosDeHito(eventos, "t1", 0, ["3"]);
+    expect(con[0].apartados).toEqual(["3"]);
+    expect(apartadosDeHito(con, "t1", 0, [])[0].apartados).toBeUndefined();
+    expect(apartadosDeHito(eventos, "t1", 4, ["3"])).toBe(eventos);
   });
 });

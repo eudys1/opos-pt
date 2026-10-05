@@ -188,6 +188,39 @@ Tanda del 04-10-2026:
 - **Normativa**: descarga en Word (`docx`, se carga solo al pedirlo), PDF (imprimir del navegador)
   o texto.
 
+Tanda del 05-10-2026 (que todo se comporte igual):
+- **Apartados**: `nucleo/estructura.ts` reconoce la estructura del tema (INTRODUCCIÓN, «1.», «1.1»,
+  también «1.-», «1)», romanos, «#» de Markdown y títulos en mayúsculas sin número) y da a cada
+  apartado un id estable (su número, o el título si no lo tiene). `mapaDeApartados` coloca cada
+  pregunta en su apartado por su cita (59 de 60 en el tema 3). **Un solo selector**,
+  `SelectorApartados`, en Practicar, Fallos → Repasar, al marcar un repaso o el estudiado
+  (repaso parcial: «parte» en el Registro) y en los objetivos. Vacío es el tema entero. Se
+  guardan en `eventos_estudio.apartados` y `objetivos.apartados` (migración 0009).
+- **Listas largas, en ventana, nunca en desplegable**: el selector de apartados se abre en un
+  `Dialogo` (hoja desde abajo en el móvil), con los apartados principales plegados (▸ para ver
+  los subapartados), títulos en una línea con «…» y «Listo» fijo abajo. Colgando de un botón
+  se salía de la pantalla. Cualquier selector con mucha información, igual.
+- **Lo que hace la IA, se dice**: `MarcaIA` («✦ IA») junto a cada botón que la llama (crear
+  preguntas y supuestos, corregir, leer fotos y PDF, comprobar la normativa) y en los pasos
+  donde trabaja sola (reformular fallos). Botón nuevo que llame a una ruta de IA, con su marca.
+- **Practicar** enseña todos los temas subidos: con preguntas (y sus apartados) o «subido, sin
+  preguntas» con «Crear preguntas» en una ventana; los no subidos, en una línea.
+- **Marcar es igual en todo el planificador**: el círculo dentro de la etiqueta. Objetivo: lo
+  alterna. Repaso que toca hoy o va tarde: lo marca hecho hoy. Lo hecho: ✔, y pulsarlo abre su
+  ventana (desmarcar siempre con confirmación). Nada se tacha: lo hecho se atenúa con su ✔.
+- **La forma dice qué es** (`delRegistro` en `EntradaAgenda`): ◯ círculo = paso del Registro
+  (estudiado, repasos, día para empezar), y marcarlo lo marca allí; ☐ cuadrado = objetivo tuyo,
+  que no toca el Registro. Un repaso futuro también se puede marcar (hecho hoy, dice cuándo
+  tocaba). Al crear un objetivo «Repaso» (o «Temario» de un tema sin empezar) con tema, se
+  pregunta «¿Qué es?»: el repaso N del Registro (se mueve a ese día con `reprogramarRepaso`, o
+  `planearInicio`) o un objetivo aparte. Así no hay dos cosas iguales que se marcan distinto.
+- **Lo que cambia otro sitio, se avisa antes, en una línea**: «Empezar el tema» es el mismo dato
+  en Registro y planificador; marcar el estudiado da por cumplido el día previsto (y lo mueve al
+  día real); el círculo de un repaso lo marca también en el Registro. La celda «Empezar» dice de
+  dónde sale (tuyo / estudiado / práctica).
+- Arreglado (lo destapó la prueba con la base real): un objetivo con tema creado antes de la
+  primera sincronización se quedaba con el id provisional del tema y la subida siguiente fallaba.
+
 Pendiente (apuntado por Eudys, 27-09-2026): **3.5** revisar la voz natural de los temas.
 
 Pendiente de decidir con los usuarios: criterios oficiales de corrección cuando se publiquen,

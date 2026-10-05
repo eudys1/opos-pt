@@ -5,6 +5,7 @@ import { Boton } from "@/components/ui/boton";
 import { BarraProgreso } from "@/components/ui/barra-progreso";
 import { useSesion } from "@/datos/sesion";
 import { comprimirImagen } from "@/datos/comprimir";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 /**
  * "Leer de una foto o un PDF": sube el archivo a la carpeta privada de la
@@ -93,6 +94,7 @@ export function LeerArchivo({
           onClick={() => entrada.current?.click()}
         >
           {texto}
+          <MarcaIA />
         </Boton>
       )}
       {error ? (

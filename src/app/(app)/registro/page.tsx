@@ -282,8 +282,19 @@ function Casilla({
         <span className="text-apagado" data-numerico>
           {casilla.hechoEn ? fechaCorta(casilla.hechoEn) : null}
         </span>
+        {/* Si solo cubrió unos apartados, se ve: "parte", y cuáles al pasar el ratón. */}
+        {casilla.apartados?.length ? (
+          <span
+            title={`Solo: ${casilla.apartados.join(", ")}`}
+            className="rounded-full border border-current px-1.5 text-[0.62rem] font-extrabold leading-tight"
+          >
+            parte
+          </span>
+        ) : null}
         <span className="sr-only">
-          {nombre} de {tema}: hecho el {casilla.hechoEn}. Cambiar el día o desmarcar.
+          {nombre} de {tema}: hecho el {casilla.hechoEn}
+          {casilla.apartados?.length ? `, solo los apartados ${casilla.apartados.join(", ")}` : ""}. Cambiar el día,
+          los apartados o desmarcar.
         </span>
       </button>
     );

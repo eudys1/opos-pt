@@ -64,7 +64,17 @@ function finDeMes(fecha: string): string {
 }
 
 export default function PaginaPlanificador() {
-  const { temas, eventos, objetivos, perfil, cargado, editarObjetivo, reprogramarRepaso } = useCuaderno();
+  const {
+    temas,
+    eventos,
+    objetivos,
+    perfil,
+    cargado,
+    editarObjetivo,
+    reprogramarRepaso,
+    alternarObjetivo,
+    marcarHito,
+  } = useCuaderno();
   const hoy = hoyISO();
   const [vista, setVista] = usePreferencia<Vista>("planificador-vista", "semana");
   const [ancla, setAncla] = useState(hoy);
@@ -119,6 +129,18 @@ export default function PaginaPlanificador() {
     if (e.origen === "objetivo" && e.objetivoId) setEditandoObjetivo({ id: e.objetivoId, fecha: e.fecha });
     else if (e.temaId !== undefined && e.indice !== undefined) {
       setEditandoHito({ temaId: e.temaId, indice: e.indice });
+    }
+  };
+
+  /** El círculo: un objetivo se alterna; un repaso pendiente se marca hecho hoy. */
+  const marcar = (e: EntradaAgenda) => {
+    if (e.origen === "objetivo" && e.objetivoId) {
+      alternarObjetivo(e.objetivoId);
+      return;
+    }
+    if (e.origen === "previsto" && e.temaId !== undefined) {
+      const codigo = marcarHito(e.temaId, hoy);
+      avisar(codigo ? "No se ha podido marcar: ábrelo para ver por qué." : "");
     }
   };
 
@@ -239,6 +261,7 @@ export default function PaginaPlanificador() {
                 entradas={mapa.get(dia) ?? []}
                 temas={temas}
                 onPulsar={pulsar}
+                onMarcar={marcar}
                 onAnadir={() => setEditandoObjetivo({ fecha: dia })}
               />
             </DiaQueRecibe>
@@ -313,7 +336,9 @@ export default function PaginaPlanificador() {
               dia={diaAbierto}
               entradas={delDiaAbierto}
               temas={temas}
+              hoy={hoy}
               onPulsar={pulsar}
+              onMarcar={marcar}
               onAnadir={() => setEditandoObjetivo({ fecha: diaAbierto })}
               ancho
             />
@@ -367,6 +392,15 @@ function Leyenda() {
           {SECCIONES[t].nombre}
         </li>
       ))}
+      {/* Las dos formas de marcar: lo que es del Registro y lo que es tuyo. */}
+      <li className="inline-flex items-center gap-1.5 border-l-2 border-linea pl-3">
+        <span aria-hidden="true" className="inline-block h-3 w-3 rounded-full border-2 border-campo" />
+        del Registro
+      </li>
+      <li className="inline-flex items-center gap-1.5">
+        <span aria-hidden="true" className="inline-block h-3 w-3 rounded-[3px] border-2 border-campo" />
+        objetivo tuyo
+      </li>
     </ul>
   );
 }
@@ -383,6 +417,7 @@ function DiaSemana({
   entradas,
   temas,
   onPulsar,
+  onMarcar,
   onAnadir,
 }: {
   dia: string;
@@ -391,6 +426,7 @@ function DiaSemana({
   entradas: EntradaAgenda[];
   temas: Tema[];
   onPulsar: (e: EntradaAgenda) => void;
+  onMarcar: (e: EntradaAgenda) => void;
   onAnadir: () => void;
 }) {
   const esHoy = dia === hoy;
@@ -413,7 +449,15 @@ function DiaSemana({
           {fechaCorta(dia)}
         </span>
       </div>
-      <ListaDelDia dia={dia} entradas={entradas} temas={temas} onPulsar={onPulsar} onAnadir={onAnadir} />
+      <ListaDelDia
+        dia={dia}
+        hoy={hoy}
+        entradas={entradas}
+        temas={temas}
+        onPulsar={onPulsar}
+        onMarcar={onMarcar}
+        onAnadir={onAnadir}
+      />
     </Ficha>
   );
 }
@@ -421,20 +465,23 @@ function DiaSemana({
 /** Las entradas de un día, cada una con su casilla (si es objetivo) y su asa para moverla. */
 function ListaDelDia({
   dia,
+  hoy,
   entradas,
   temas,
   onPulsar,
+  onMarcar,
   onAnadir,
   ancho,
 }: {
   dia: string;
+  hoy: string;
   entradas: EntradaAgenda[];
   temas: Tema[];
   onPulsar: (e: EntradaAgenda) => void;
+  onMarcar: (e: EntradaAgenda) => void;
   onAnadir: () => void;
   ancho?: boolean;
 }) {
-  const { alternarObjetivo } = useCuaderno();
   return (
     <div className="flex flex-1 flex-col gap-2">
       {ancho && entradas.length === 0 ? (
@@ -448,44 +495,31 @@ function ListaDelDia({
           return (
             <li key={e.clave}>
               <Arrastrable entrada={e} deshabilitado={!seArrastra(e)} asa nombre={texto} className="flex items-stretch gap-1">
-                {e.origen === "objetivo" && e.objetivoId ? (
-                  <button
-                    type="button"
-                    onClick={() => alternarObjetivo(e.objetivoId!)}
-                    aria-pressed={hecho}
-                    className={clsx(
-                      "inline-flex w-9 shrink-0 items-center justify-center rounded-[10px] border-2",
-                      hecho ? "border-transparent bg-visto-fondo" : "border-campo bg-papel-alto hover:border-campo-foco",
-                    )}
-                  >
-                    {hecho ? <Visto className="h-4 w-4" animado={false} /> : null}
-                    <span className="sr-only">
-                      {hecho ? "Desmarcar" : "Marcar como hecho"}: {e.texto}
-                    </span>
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => onPulsar(e)}
+                <div
                   className={clsx(
-                    "flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-[10px] border-l-[4px] px-2.5 py-1.5 text-left text-[0.84rem] font-bold leading-snug transition-colors",
+                    "flex min-h-10 min-w-0 flex-1 items-stretch rounded-[10px] border-l-[4px] transition-colors",
                     s.borde,
-                    hecho ? "bg-papel-franja text-apagado" : clsx(s.fondo, "text-tinta hover:brightness-95"),
+                    hecho ? "bg-papel-franja" : s.fondo,
                     e.estado === "atrasado" && "outline outline-1 outline-margen",
                   )}
                 >
-                  {hecho && e.origen !== "objetivo" ? (
-                    <Visto className={clsx("h-3.5 w-3.5 shrink-0", s.texto)} animado={false} tono="text-current" />
-                  ) : null}
-                  <span className={clsx("flex-1", hecho && e.origen === "objetivo" && "line-through")}>
+                  <Marca entrada={e} texto={texto} hoy={hoy} onMarcar={onMarcar} onPulsar={onPulsar} />
+                  <button
+                    type="button"
+                    onClick={() => onPulsar(e)}
+                    className={clsx(
+                      "min-w-0 flex-1 rounded-r-[10px] py-1.5 pr-2.5 text-left text-[0.84rem] font-bold leading-snug hover:brightness-95",
+                      hecho ? "text-apagado" : "text-tinta",
+                    )}
+                  >
                     {texto}
                     {e.estado === "atrasado" && e.diasDeRetraso ? (
                       <span className="block text-[0.74rem] font-semibold text-margen">
                         {e.diasDeRetraso} {e.diasDeRetraso === 1 ? "día" : "días"} tarde
                       </span>
                     ) : null}
-                  </span>
-                </button>
+                  </button>
+                </div>
               </Arrastrable>
             </li>
           );
@@ -500,6 +534,75 @@ function ListaDelDia({
         + Añadir<span className="sr-only"> objetivo el {fechaLarga(dia)}</span>
       </button>
     </div>
+  );
+}
+
+/**
+ * El círculo de cada entrada, el mismo para todo:
+ *   - un objetivo se marca y desmarca con él;
+ *   - un repaso que toca hoy (o va tarde) se marca hecho hoy;
+ *   - lo ya hecho lleva su ✔, y pulsarlo abre su ventana: desmarcar un hito es
+ *     siempre a propósito, con su confirmación;
+ *   - un repaso futuro no se puede marcar todavía: círculo punteado que lo dice.
+ */
+function Marca({
+  entrada: e,
+  texto,
+  hoy,
+  onMarcar,
+  onPulsar,
+}: {
+  entrada: EntradaAgenda;
+  texto: string;
+  hoy: string;
+  onMarcar: (e: EntradaAgenda) => void;
+  onPulsar: (e: EntradaAgenda) => void;
+}) {
+  const hecho = e.estado === "hecho";
+  // Forma = qué es: círculo, un paso del Registro; cuadrado, un objetivo tuyo.
+  const forma = e.delRegistro ? "rounded-full" : "rounded-[6px]";
+  const circulo = clsx(
+    "inline-flex h-6 w-6 shrink-0 items-center justify-center border-2 transition-colors",
+    forma,
+  );
+  const caja = "flex w-10 shrink-0 items-center justify-center";
+
+  const accion = e.origen === "objetivo" || (!hecho && e.origen === "previsto") ? onMarcar : onPulsar;
+  const adelantado = e.origen === "previsto" && !hecho && e.fecha > hoy;
+  return (
+    <button
+      type="button"
+      onClick={() => accion(e)}
+      aria-pressed={e.origen === "objetivo" ? hecho : undefined}
+      title={
+        e.origen === "objetivo"
+          ? `${hecho ? "Desmarcar" : "Marcar como hecho"}${e.delRegistro ? " (también en el Registro)" : ""}`
+          : hecho
+            ? "Hecho: ábrelo para cambiarlo"
+            : adelantado
+              ? `Marcar como hecho hoy (tocaba el ${fechaLarga(e.fecha)}; también en el Registro)`
+              : "Marcar como hecho hoy (también en el Registro)"
+      }
+      className={clsx(caja, "group rounded-l-[8px]")}
+    >
+      <span
+        className={clsx(
+          circulo,
+          hecho
+            ? "border-visto-vivo bg-visto-vivo text-papel-alto"
+            : "border-campo bg-papel-alto group-hover:border-campo-foco",
+        )}
+      >
+        {hecho ? <Visto className="h-3.5 w-3.5" animado={false} tono="text-current" /> : null}
+      </span>
+      <span className="sr-only">
+        {e.origen === "objetivo"
+          ? `${hecho ? "Desmarcar" : "Marcar como hecho"}: ${texto}`
+          : hecho
+            ? `Hecho: ${texto}. Abrir para cambiarlo`
+            : `Marcar como hecho hoy, también en el Registro: ${texto}`}
+      </span>
+    </button>
   );
 }
 
@@ -586,10 +689,11 @@ function DiaMes({
                 className={clsx(
                   "block truncate rounded-[7px] border-l-[3px] px-1.5 py-0.5 text-[0.72rem] font-bold",
                   s.borde,
-                  e.estado === "hecho" ? "bg-papel-franja text-apagado line-through" : clsx(s.fondo, "text-tinta"),
+                  e.estado === "hecho" ? "bg-papel-franja text-apagado" : clsx(s.fondo, "text-tinta"),
                   e.estado === "atrasado" && "outline outline-1 outline-margen",
                 )}
               >
+                {e.estado === "hecho" ? "✔ " : ""}
                 {textoDeEntrada(e, temas)}
               </span>
             </Arrastrable>

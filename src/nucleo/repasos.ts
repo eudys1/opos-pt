@@ -22,6 +22,8 @@ export type CasillaRepaso = {
   hechoEn?: FechaISO;
   /** Fecha en la que toca, si aún no se ha hecho. */
   tocaEn?: FechaISO;
+  /** Si se hizo solo una parte del tema: qué apartados. */
+  apartados?: string[];
 };
 
 export type ProgresoTema = {
@@ -73,7 +75,7 @@ export function progresoDelTema(
     return { casillas, diasDeRetraso: 0 };
   }
 
-  casillas.push({ indice: 0, estado: "hecho", hechoEn: estudiado.fecha });
+  casillas.push({ indice: 0, estado: "hecho", hechoEn: estudiado.fecha, apartados: estudiado.apartados });
 
   let ultimaFechaHecha: FechaISO = estudiado.fecha;
   let pendienteYaMarcado = false;
@@ -82,7 +84,7 @@ export function progresoDelTema(
     const hecho = repasos.find((r) => (r.numeroRepaso ?? 0) === i + 1);
 
     if (hecho) {
-      casillas.push({ indice: i + 1, estado: "hecho", hechoEn: hecho.fecha });
+      casillas.push({ indice: i + 1, estado: "hecho", hechoEn: hecho.fecha, apartados: hecho.apartados });
       ultimaFechaHecha = hecho.fecha;
       continue;
     }

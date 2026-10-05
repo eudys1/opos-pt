@@ -115,7 +115,13 @@ export function marcarSiguienteHito(
   eventos: EventoEstudio[],
   temaId: string,
   fecha: FechaISO,
-  opciones: { hoy: FechaISO; totalRepasos: number; nuevoId: () => string },
+  opciones: {
+    hoy: FechaISO;
+    totalRepasos: number;
+    nuevoId: () => string;
+    /** Si solo se hizo una parte del tema: los apartados. Vacío es el tema entero. */
+    apartados?: string[];
+  },
 ): ResultadoEdicion {
   const hitos = hitosDelTema(eventos, temaId);
   const indice = hitos.length === 0 ? 0 : (hitos.at(-1)?.indice ?? 0) + 1;
@@ -125,10 +131,11 @@ export function marcarSiguienteHito(
   const anterior = hitos.at(-1);
   if (anterior && fecha < anterior.evento.fecha) return { ok: false, codigo: "antes-del-anterior" };
 
+  const parte = opciones.apartados?.length ? { apartados: opciones.apartados } : {};
   const nuevo: EventoEstudio =
     indice === 0
-      ? { id: opciones.nuevoId(), temaId, tipo: "estudiado", fecha }
-      : { id: opciones.nuevoId(), temaId, tipo: "repaso", numeroRepaso: indice, fecha };
+      ? { id: opciones.nuevoId(), temaId, tipo: "estudiado", fecha, ...parte }
+      : { id: opciones.nuevoId(), temaId, tipo: "repaso", numeroRepaso: indice, fecha, ...parte };
 
   return { ok: true, eventos: [...eventos, nuevo] };
 }
@@ -144,4 +151,21 @@ export function estadoEstudioDe(
   const repasos = hitos.filter((h) => h.indice > 0).length;
   if (repasos === 0) return "estudiado";
   return repasos >= totalRepasos ? "dominado" : "en_repaso";
+}
+
+/**
+ * Cambia qué apartados cubrió un hito ya hecho. Vacío es el tema entero. No
+ * mueve fechas ni cambia el orden: solo anota de qué fue ese repaso.
+ */
+export function apartadosDeHito(
+  eventos: EventoEstudio[],
+  temaId: string,
+  indice: number,
+  apartados: string[],
+): EventoEstudio[] {
+  const hito = hitosDelTema(eventos, temaId).find((h) => h.indice === indice);
+  if (!hito) return eventos;
+  return eventos.map((e) =>
+    e.id === hito.evento.id ? { ...e, apartados: apartados.length ? apartados : undefined } : e,
+  );
 }

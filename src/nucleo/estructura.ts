@@ -18,18 +18,43 @@ export type Bloque = { id: string; tipo: TipoBloque; texto: string };
 const TITULO = /^TEMA\s+\d+/i;
 const EPIGRAFE_FIJO =
   /^(INTRODUCCI[ÓO]N|CONCLUSI[ÓO]N(ES)?|REFERENCIAS\b.*|BIBLIOGRAF[ÍI]A\b.*|FUENTES CONSULTADAS\b.*|WEBGRAF[ÍI]A\b.*)\.?$/i;
-const SUBEPIGRAFE = /^\d+\.\d+(\.\d+)*\.?\s+\S/;
-const EPIGRAFE_NUMERADO = /^\d+\.?\s+[A-ZÁÉÍÓÚÑ]/;
+// Tras el número vale punto, punto y guion, paréntesis o guion: "1.1", "1.1.",
+// "1.1.-", "1.1)". Cada academia numera a su manera.
+const SUBEPIGRAFE = /^\d+\.\d+(\.\d+)*(\.-|\.|\)|-)?\s+\S/;
+const EPIGRAFE_NUMERADO = /^\d+(\.-|\.|\)|-)?\s+[A-ZÁÉÍÓÚÑ]/;
+// Numeración romana: "II. MARCO LEGAL", "IV.- MEDIDAS".
+const EPIGRAFE_ROMANO = /^[IVXL]{1,5}(\.-|\.|\)|-)\s+\S/;
+// Títulos de Markdown, cuando el texto se pega de otro sitio: "# …", "## …".
+const MARKDOWN = /^(#{1,3})\s+\S/;
 
 function esMayusculas(linea: string): boolean {
   const letras = linea.replace(/[^\p{L}]/gu, "");
   return letras.length >= 3 && letras === letras.toUpperCase();
 }
 
+/**
+ * Un título sin número, entero en mayúsculas y corto: "MARCO LEGISLATIVO".
+ * Se mira aparte, después de juntar los títulos partidos por el PDF, para no
+ * confundir la segunda línea de un título largo con un epígrafe nuevo.
+ */
+function esTituloSinNumero(linea: string): boolean {
+  const letras = linea.replace(/[^\p{L}]/gu, "");
+  return (
+    esMayusculas(linea) &&
+    letras.length >= 8 &&
+    linea.length <= 80 &&
+    linea.split(/\s+/).length >= 2 &&
+    !/[.,;:]$/.test(linea)
+  );
+}
+
 function tipoDeLinea(linea: string): TipoBloque | null {
   if (TITULO.test(linea)) return "titulo";
+  const md = linea.match(MARKDOWN);
+  if (md) return md[1].length === 1 ? "epigrafe" : "subepigrafe";
   if (EPIGRAFE_FIJO.test(linea)) return "epigrafe";
   if (SUBEPIGRAFE.test(linea)) return "subepigrafe";
+  if (EPIGRAFE_ROMANO.test(linea) && (esMayusculas(linea) || linea.length < 90)) return "epigrafe";
   // "1. EL PROCESO…" es epígrafe; "1 de cada 3 alumnos…" no: exige mayúsculas
   // o que la línea sea corta, como suelen ser los títulos.
   if (EPIGRAFE_NUMERADO.test(linea) && (esMayusculas(linea) || linea.length < 90)) {
@@ -67,7 +92,8 @@ export function estructuraDelTema(texto: string): Bloque[] {
     const anterior = bloques.at(-1);
 
     if (tipo) {
-      bloques.push({ tipo, texto: linea });
+      // De un título de Markdown se guarda el texto, sin las almohadillas.
+      bloques.push({ tipo, texto: linea.replace(/^#{1,3}\s+/, "") });
       continue;
     }
 
@@ -86,6 +112,13 @@ export function estructuraDelTema(texto: string): Bloque[] {
     // Un título partido por el PDF: la línea siguiente sigue en mayúsculas.
     if (anterior && anterior.tipo !== "parrafo" && esMayusculas(linea) && anterior.texto.length > 30) {
       anterior.texto = `${anterior.texto} ${linea}`;
+      continue;
+    }
+
+    // Un título sin número ("MARCO LEGISLATIVO") tras un párrafo terminado.
+    const parrafoAbierto = anterior?.tipo === "parrafo" && anterior.texto && !/[.:;!?»”"]$/.test(anterior.texto);
+    if (!parrafoAbierto && esTituloSinNumero(linea)) {
+      bloques.push({ tipo: "epigrafe", texto: linea });
       continue;
     }
 
@@ -221,4 +254,81 @@ function normalizarParaBuscar(texto: string): string {
     .replace(/\p{M}/gu, "")
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+}
+
+// ---------------------------------------------------------------- apartados
+
+/**
+ * Un apartado del tema: un epígrafe o subepígrafe del índice. Su id es el
+ * número ("2.1") si lo tiene y, si no, el título en minúsculas
+ * ("introduccion"): así sobrevive a que se retoque el texto del tema, y lo
+ * guardado (qué apartados repasaste, de cuáles practicar) sigue valiendo.
+ */
+export type Apartado = {
+  id: string;
+  /** "2.1", "IV"… o null si el título no lleva número. */
+  numero: string | null;
+  titulo: string;
+  /** 1 para "2.", 2 para "2.1", 3 para "2.1.3". */
+  nivel: number;
+  bloqueId: string;
+};
+
+const NUMERO_DE_TITULO = /^(\d+(?:\.\d+)*|[IVXL]{1,5})(?:\.-|\.|\)|-)?\s+/;
+
+export function apartadosDelTema(texto: string): Apartado[] {
+  return apartadosDeBloques(estructuraDelTema(texto));
+}
+
+function apartadosDeBloques(bloques: Bloque[]): Apartado[] {
+  const usados = new Set<string>();
+  return indiceDelTema(bloques).map((b) => {
+    const m = b.texto.match(NUMERO_DE_TITULO);
+    const numero = m ? m[1] : null;
+    const titulo = (m ? b.texto.slice(m[0].length) : b.texto).replace(/[.:]$/, "").trim();
+    const nivel =
+      numero && /^\d/.test(numero) ? Math.min(3, numero.split(".").length) : b.tipo === "subepigrafe" ? 2 : 1;
+    let id = numero ?? (normalizarParaBuscar(titulo).replace(/ /g, "-").slice(0, 40) || b.id);
+    while (usados.has(id)) id = `${id}+`;
+    usados.add(id);
+    return { id, numero, titulo, nivel, bloqueId: b.id };
+  });
+}
+
+/**
+ * Para un tema, a qué apartados pertenece cada cita: el subapartado y el
+ * apartado que lo contiene ("2.1" y "2"). Se prepara una vez por tema y se
+ * pregunta por cada pregunta, que es lo que hace falta para practicar solo
+ * unos apartados. Una cita que no se encuentra no pertenece a ninguno.
+ */
+export function mapaDeApartados(texto: string): {
+  apartados: Apartado[];
+  deCita: (cita: string) => string[];
+} {
+  const bloques = estructuraDelTema(texto);
+  const apartados = apartadosDeBloques(bloques);
+  const porBloque = new Map(apartados.map((a) => [a.bloqueId, a]));
+  return {
+    apartados,
+    deCita(cita) {
+      const sitio = ubicarCita(bloques, cita);
+      if (!sitio) return [];
+      const i = bloques.findIndex((b) => b.id === sitio.bloque.id);
+      // Hacia atrás: el apartado más cercano y los de nivel superior que lo contienen.
+      const cadena: Apartado[] = [];
+      for (let j = i - 1; j >= 0; j--) {
+        const a = porBloque.get(bloques[j].id);
+        if (!a) continue;
+        if (!cadena.length || a.nivel < cadena[cadena.length - 1].nivel) cadena.push(a);
+        if (a.nivel === 1) break;
+      }
+      return cadena.map((a) => a.id);
+    },
+  };
+}
+
+/** Cómo se nombra un apartado guardado: "2.1 Dictamen de escolarización", o su id si ya no existe. */
+export function nombreDeApartado(apartados: Apartado[], id: string): string {
+  const a = apartados.find((x) => x.id === id);
+  return a ? `${a.numero ? `${a.numero} ` : ""}${a.titulo}` : id;
 }

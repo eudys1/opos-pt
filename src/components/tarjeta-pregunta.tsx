@@ -11,6 +11,7 @@ import { cotejarLiteral, type Cotejo } from "@/nucleo/cotejo";
 import { estructuraDelTema, ubicarCita } from "@/nucleo/estructura";
 import { useCuaderno } from "@/datos/almacen";
 import { AreaTexto } from "@/components/ui/campos";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 /**
  * Una pregunta y su corrección. La usan Practicar y el repaso de fallos, para
@@ -507,6 +508,7 @@ function Corta({
         <div className="flex flex-wrap items-center gap-3">
           <Boton onClick={corregir} disabled={corrigiendo}>
             {corrigiendo ? "Corrigiendo…" : "Corregir"}
+            <MarcaIA />
           </Boton>
           <span className="text-[0.85rem] text-apagado">
             Se corrige contra la respuesta que salió de tus apuntes.

@@ -7,6 +7,7 @@ import { Ficha } from "@/components/ui/ficha";
 import { useSesion } from "@/datos/sesion";
 import { comprimirImagen } from "@/datos/comprimir";
 import { BarraProgreso } from "@/components/ui/barra-progreso";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 /**
  * Subir fotos o PDF de un tema y pasarlos a texto.
@@ -186,6 +187,7 @@ export function SubidaApuntes({
           disabled={trabajando}
         >
           {trabajando ? "Trabajando…" : "Subir fotos o PDF"}
+          <MarcaIA />
         </Boton>
         <p className="max-w-[46ch] text-[0.85rem] leading-snug text-apagado">
           Hasta 20 archivos del tema {numeroTema}, de 25 MB cada uno. El texto aparecerá abajo para

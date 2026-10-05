@@ -16,7 +16,10 @@ import { cuando, fechaCorta, hoyISO } from "@/nucleo/fechas";
 import type { Tema } from "@/nucleo/tipos";
 import { tituloCorto } from "@/contenido/temario-pt";
 import { CampoTexto, Selector } from "@/components/ui/campos";
+import { SelectorApartados } from "@/components/selector-apartados";
+import { mapaDeApartados } from "@/nucleo/estructura";
 import { Tab, TabList, TabPanel, Tabs } from "react-aria-components";
+import { MarcaIA } from "@/components/ui/marca-ia";
 
 /**
  * Fallos, en dos pestañas: Repasar (preparar la sesión de ahora) y el Banco
@@ -60,6 +63,8 @@ export default function PaginaFallos() {
   const [alcance, setAlcance] = useState<Alcance>("hoy");
   const [pestanaElegida, setPestana] = useState<Pestana | null>(null);
   const [temaFiltro, setTemaFiltro] = useState<string>("");
+  // Dentro del tema elegido, solo unos apartados (vacío: el tema entero).
+  const [apartadosFiltro, setApartadosFiltro] = useState<string[]>([]);
   const [tipoFiltro, setTipoFiltro] = useState<string>("");
 
   const [preparando, setPreparando] = useState<{ hechas: number; total: number } | null>(null);
@@ -110,12 +115,32 @@ export default function PaginaFallos() {
     [abiertos],
   );
 
+  // Los apartados de cada fallo salen de su cita, como en Practicar.
+  const textoDelTema = temas.find((t) => t.id === temaFiltro)?.texto ?? "";
+  const mapaDelTema = useMemo(() => mapaDeApartados(textoDelTema), [textoDelTema]);
+  // Cuántos fallos hay en cada apartado del tema elegido, para enseñarlo al elegir.
+  const fallosPorApartado = useMemo(() => {
+    const cuenta: Record<string, number> = {};
+    if (!temaFiltro) return cuenta;
+    for (const f of lote) {
+      if (f.tema_id !== temaFiltro || (tipoFiltro && f.items?.tipo !== tipoFiltro)) continue;
+      for (const a of mapaDelTema.deCita(f.items?.cita ?? "")) cuenta[a] = (cuenta[a] ?? 0) + 1;
+    }
+    return cuenta;
+  }, [lote, temaFiltro, tipoFiltro, mapaDelTema]);
+
   const seleccion = useMemo(
     () =>
       lote
         .filter((f) => !temaFiltro || f.tema_id === temaFiltro)
-        .filter((f) => !tipoFiltro || f.items?.tipo === tipoFiltro),
-    [lote, temaFiltro, tipoFiltro],
+        .filter((f) => !tipoFiltro || f.items?.tipo === tipoFiltro)
+        .filter(
+          (f) =>
+            !temaFiltro ||
+            apartadosFiltro.length === 0 ||
+            mapaDelTema.deCita(f.items?.cita ?? "").some((a) => apartadosFiltro.includes(a)),
+        ),
+    [lote, temaFiltro, tipoFiltro, apartadosFiltro, mapaDelTema],
   );
 
   /** Monta la sesión con la lista que se le dé: la elegida en Repasar o la vista en el banco. */
@@ -201,7 +226,7 @@ export default function PaginaFallos() {
       <div className="mx-auto flex max-w-2xl flex-col gap-5">
         <h1 className="text-[2.1rem]">Preparando el repaso</h1>
         <BarraProgreso
-          pasos={Array.from({ length: preparando.total }, () => "reformulando las preguntas")}
+          pasos={Array.from({ length: preparando.total }, () => "la IA está reformulando las preguntas")}
           actual={preparando.hechas}
           aviso="Solo la primera vez que repasas cada fallo: después las versiones ya están guardadas."
         />
@@ -385,7 +410,10 @@ export default function PaginaFallos() {
                     <Selector
                       etiqueta="Tema"
                       valor={temaFiltro || "todos"}
-                      onCambio={(v) => setTemaFiltro(v === "todos" ? "" : v)}
+                      onCambio={(v) => {
+                        setTemaFiltro(v === "todos" ? "" : v);
+                        setApartadosFiltro([]);
+                      }}
                       opciones={[
                         { valor: "todos", texto: "Todos los temas" },
                         ...temasDelFiltro.map(({ tema: t, fallos }) => ({
@@ -405,6 +433,19 @@ export default function PaginaFallos() {
                         </Link>
                       </p>
                     ) : null}
+                    {temaElegido && temaElegido.fallos > 0 ? (
+                      <div className="mt-2">
+                        <SelectorApartados
+                          temaId={temaElegido.tema.id}
+                          valor={apartadosFiltro}
+                          onCambio={setApartadosFiltro}
+                          etiqueta="Apartados"
+                          ayuda="Al lado de cada apartado, cuántos fallos tiene. Marcar uno incluye sus subapartados."
+                          cuantas={fallosPorApartado}
+                          compacto
+                        />
+                      </div>
+                    ) : null}
                   </div>
                   <Selector
                     etiqueta="Tipo de pregunta"
@@ -423,7 +464,11 @@ export default function PaginaFallos() {
                   </Boton>
                   {seleccion.length === 0 ? (
                     <span className="text-[0.88rem] text-apagado">Ninguno con esos filtros.</span>
-                  ) : null}
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-[0.85rem] text-apagado">
+                      Te las pregunta de otra forma <MarcaIA />
+                    </span>
+                  )}
                 </div>
               </Ficha>
             )}
